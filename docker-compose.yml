@@ -1,0 +1,8 @@
+services:
+  compliance-screening-ui:
+    build:
+      context: .
+    image: cloud-lab-compliance-screening-ui:latest
+    ports:
+      - "8080:8080"
+    restart: unless-stopped

@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cloud Lab Compliance Screening</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">CL</div>
+          <div>
+            <p class="eyebrow">Cloud Lab</p>
+            <h1>Compliance Screening</h1>
+          </div>
+        </div>
+
+        <nav class="nav-tabs" aria-label="Views">
+          <button class="nav-tab active" type="button" data-view="screening">Screening</button>
+          <button class="nav-tab" type="button" data-view="submissions">Submissions</button>
+        </nav>
+
+        <section class="threat-key" aria-label="Threat levels">
+          <h2>Threat Levels</h2>
+          <div class="threat-item low">
+            <span></span>
+            <div>
+              <strong>Low</strong>
+              <small>Auto-triaged</small>
+            </div>
+          </div>
+          <div class="threat-item moderate">
+            <span></span>
+            <div>
+              <strong>Moderate</strong>
+              <small>Request more information</small>
+            </div>
+          </div>
+          <div class="threat-item elevated">
+            <span></span>
+            <div>
+              <strong>Elevated</strong>
+              <small>Human review recommended</small>
+            </div>
+          </div>
+          <div class="threat-item flagged">
+            <span></span>
+            <div>
+              <strong>Flagged</strong>
+              <small>Mandatory human review</small>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <main>
+        <section class="view active" id="screening-view" aria-labelledby="screening-title">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">MVP Frontend</p>
+              <h2 id="screening-title">Protocol Intake</h2>
+            </div>
+            <div class="run-chip" id="run-chip">Draft</div>
+          </div>
+
+          <div class="screening-grid">
+            <section class="panel intake-panel" aria-labelledby="intake-title">
+              <div class="panel-title">
+                <div>
+                  <p class="eyebrow">Card 1</p>
+                  <h3 id="intake-title">Protocol Intake</h3>
+                </div>
+                <span class="status-pill neutral" id="schema-status">Not validated</span>
+              </div>
+
+              <div class="form-grid">
+                <label>
+                  <span>Protocol format</span>
+                  <select id="protocol-format">
+                    <option>Native JSON</option>
+                    <option>Native YAML</option>
+                    <option>Autoprotocol</option>
+                    <option>Emerald Cloud Lab</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>Policy profile</span>
+                  <select id="policy-profile">
+                    <option>Institutional Biosafety Committee</option>
+                    <option>Chemical Hygiene Plan</option>
+                    <option>Remote Cloud Lab Oversight</option>
+                    <option>Shipping and Transfer Review</option>
+                    <option>Full Safety Compliance Bundle</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="protocol-inputs">
+                <label class="upload-zone" for="protocol-file" id="upload-zone">
+                  <input id="protocol-file" type="file" accept=".json,.yaml,.yml,.txt" />
+                  <span class="upload-icon" aria-hidden="true">+</span>
+                  <strong>Upload protocol file</strong>
+                  <small id="file-name">JSON, YAML, Autoprotocol, or ECL export</small>
+                </label>
+
+                <button class="secondary-action" type="button" id="open-paste-modal">
+                  Paste protocol
+                </button>
+              </div>
+
+              <div class="protocol-preview" aria-live="polite">
+                <div class="preview-head">
+                  <span>Current protocol</span>
+                  <button class="text-action" type="button" id="load-sample">Load sample</button>
+                </div>
+                <pre id="protocol-preview">No protocol loaded.</pre>
+              </div>
+
+              <div class="action-row">
+                <button class="primary-action" type="button" id="validate-btn">Validate schema</button>
+                <button class="primary-action screen" type="button" id="screen-btn" disabled>Screen protocol</button>
+              </div>
+            </section>
+
+            <section class="panel results-panel hidden" id="results-panel" aria-labelledby="results-title">
+              <div class="panel-title">
+                <div>
+                  <p class="eyebrow">Card 4</p>
+                  <h3 id="results-title">Overall Results</h3>
+                </div>
+                <span class="status-pill elevated" id="overall-status">Elevated</span>
+              </div>
+
+              <div class="score-row">
+                <div class="confidence-meter" aria-label="Confidence score">
+                  <svg viewBox="0 0 120 120" role="img">
+                    <circle class="meter-bg" cx="60" cy="60" r="48"></circle>
+                    <circle class="meter-fg" id="meter-fg" cx="60" cy="60" r="48"></circle>
+                    <text x="60" y="66" text-anchor="middle" id="confidence-text">82%</text>
+                  </svg>
+                </div>
+                <div>
+                  <p class="result-label">Human review recommended</p>
+                  <h4 id="result-heading">Potentially serious concern</h4>
+                  <p id="result-summary">
+                    Workflow contains aggregate escalation triggers and missing oversight metadata.
+                  </p>
+                </div>
+              </div>
+
+              <dl class="result-metrics">
+                <div>
+                  <dt>Risk</dt>
+                  <dd id="risk-metric">High</dd>
+                </div>
+                <div>
+                  <dt>Findings</dt>
+                  <dd id="findings-metric">3</dd>
+                </div>
+                <div>
+                  <dt>Review route</dt>
+                  <dd id="route-metric">IBC Queue</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="panel graph-panel hidden" id="graph-panel" aria-labelledby="graph-title">
+              <div class="panel-title">
+                <div>
+                  <p class="eyebrow">Card 2</p>
+                  <h3 id="graph-title">Workflow Graph</h3>
+                </div>
+                <span class="status-pill neutral">Generated</span>
+              </div>
+
+              <div class="workflow-graph" id="workflow-graph" aria-label="Workflow graph"></div>
+            </section>
+
+            <section class="panel rules-panel hidden" id="rules-panel" aria-labelledby="rules-title">
+              <div class="panel-title">
+                <div>
+                  <p class="eyebrow">Card 3</p>
+                  <h3 id="rules-title">Rules & Triggers</h3>
+                </div>
+                <span class="status-pill flagged" id="rules-count">3 flagged</span>
+              </div>
+
+              <div class="trigger-list" id="trigger-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="submissions-view" aria-labelledby="submissions-title">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Run Data</p>
+              <h2 id="submissions-title">Protocol Submissions</h2>
+            </div>
+            <button class="primary-action compact" type="button" id="export-report">Export report</button>
+          </div>
+
+          <div class="data-grid">
+            <section class="panel wide-panel" aria-labelledby="run-table-title">
+              <div class="panel-title">
+                <div>
+                  <p class="eyebrow">Screened Runs</p>
+                  <h3 id="run-table-title">Submission Data</h3>
+                </div>
+                <span class="status-pill neutral" id="submission-count">6 records</span>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Status</th>
+                      <th>Risk</th>
+                      <th>Confidence</th>
+                      <th>Findings</th>
+                    </tr>
+                  </thead>
+                  <tbody id="submission-table"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel queue-panel" aria-labelledby="queue-title">
+              <div class="panel-title">
+                <div>
+                  <p class="eyebrow">Queue</p>
+                  <h3 id="queue-title">Needs Human Review</h3>
+                </div>
+                <span class="status-pill elevated" id="queue-count">3</span>
+              </div>
+              <div class="queue-list" id="review-queue"></div>
+            </section>
+
+            <section class="panel queue-panel" aria-labelledby="approved-title">
+              <div class="panel-title">
+                <div>
+                  <p class="eyebrow">Completed</p>
+                  <h3 id="approved-title">Auto-Approved</h3>
+                </div>
+                <span class="status-pill low" id="approved-count">2</span>
+              </div>
+              <div class="queue-list" id="approved-list"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-backdrop hidden" id="paste-modal" role="dialog" aria-modal="true" aria-labelledby="paste-title">
+      <div class="modal">
+        <div class="panel-title">
+          <div>
+            <p class="eyebrow">Manual Intake</p>
+            <h3 id="paste-title">Paste Protocol</h3>
+          </div>
+          <button class="icon-action" type="button" id="close-paste-modal" aria-label="Close">x</button>
+        </div>
+        <textarea id="paste-area" spellcheck="false" placeholder="Paste protocol JSON or YAML here"></textarea>
+        <div class="action-row modal-actions">
+          <button class="secondary-action" type="button" id="clear-paste">Clear</button>
+          <button class="primary-action" type="button" id="use-paste">Use pasted protocol</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
