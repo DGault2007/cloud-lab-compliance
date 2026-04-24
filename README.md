@@ -10,7 +10,7 @@ Frontend prototype for a laboratory safety compliance tool that screens structur
 - Validation gate before screening.
 - Workflow graph, rule triggers, overall status, risk level, and confidence display.
 - Submissions dashboard with human review queue, auto-approved list, and CSV export.
-- Dockerized static deployment with Nginx.
+- GitHub Pages deployment for static hosting.
 
 ## Threat Levels
 
@@ -31,7 +31,24 @@ To run the static checks:
 npm test
 ```
 
-## Run With Docker
+## Deploy With GitHub Pages
+
+This repository includes a GitHub Actions workflow that deploys the static site from the repository root to GitHub Pages whenever changes are pushed to `main`.
+
+After pushing to GitHub:
+
+1. Open the repository settings.
+2. Go to **Pages**.
+3. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+4. Push to `main` and wait for the **Deploy static site to Pages** workflow to finish.
+
+The deployed URL will usually look like:
+
+```text
+https://YOUR_USERNAME.github.io/YOUR_REPOSITORY/
+```
+
+## Optional Docker Run
 
 Build and run the container:
 
@@ -56,14 +73,17 @@ docker compose up --build
 
 ```text
 .
-├── app.js
-├── docker-compose.yml
-├── Dockerfile
-├── index.html
-├── nginx.conf
-├── package.json
-├── README.md
-└── styles.css
+|-- .github/workflows/
+|   |-- ci.yml
+|   `-- pages.yml
+|-- app.js
+|-- docker-compose.yml
+|-- Dockerfile
+|-- index.html
+|-- nginx.conf
+|-- package.json
+|-- README.md
+`-- styles.css
 ```
 
 ## Current Scope

@@ -20,12 +20,3 @@ jobs:
 
       - name: Check JavaScript syntax
         run: npm test
-
-  docker-build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Build Docker image
-        run: docker build -t cloud-lab-compliance-screening-ui .
