@@ -193,7 +193,7 @@ const source = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
 vm.runInContext(source, context);
 
 (async () => {
-  await vm.runInContext("validateProtocol(); generateWorkflowGraphFromValidated(); screenProtocol();", context);
+  await vm.runInContext("validateProtocol(); screenProtocol();", context);
 
   const report = vm.runInContext("currentReport", context);
   assert.equal(report.title, "Routine buffer preparation");
@@ -208,7 +208,7 @@ vm.runInContext(source, context);
   const sampleIds = vm.runInContext("sampleProtocols.map((sample) => sample.id)", context);
   for (const sampleId of sampleIds) {
     elements["sample-select"].value = sampleId;
-    await vm.runInContext("loadSelectedSample(); validateProtocol(); generateWorkflowGraphFromValidated(); screenProtocol();", context);
+    await vm.runInContext("loadSelectedSample(); validateProtocol(); screenProtocol();", context);
     const sampleReport = vm.runInContext("currentReport", context);
     assert.ok(sampleReport.title, `Expected report title for ${sampleId}`);
     assert.ok(["low", "moderate", "elevated", "flagged"].includes(sampleReport.level), `Expected known level for ${sampleId}`);
@@ -217,7 +217,7 @@ vm.runInContext(source, context);
 
   elements["sample-select"].value = "recombinant-assay";
   elements["llm-api-key"].value = "test-key";
-  await vm.runInContext("loadSelectedSample(); validateProtocol(); generateWorkflowGraphFromValidated(); screenProtocol();", context);
+  await vm.runInContext("loadSelectedSample(); validateProtocol(); screenProtocol();", context);
   const llmReport = vm.runInContext("currentReport", context);
   assert.equal(fetchCalls, 1);
   assert.equal(llmReport.llmReview.status, "completed");

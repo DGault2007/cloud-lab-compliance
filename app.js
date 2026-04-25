@@ -413,7 +413,6 @@ let loadedProtocol = "";
 let parsedProtocol = null;
 let validationResult = null;
 let currentReport = null;
-let workflowGraphGenerated = false;
 let submissions = loadSubmissions();
 
 const els = {
@@ -536,7 +535,6 @@ function setProtocolContent(content, label = "Pasted protocol", format = null) {
   parsedProtocol = null;
   validationResult = null;
   currentReport = null;
-  workflowGraphGenerated = false;
   els.preview.textContent = loadedProtocol || "No protocol loaded.";
   els.fileName.textContent = label;
   els.schemaStatus.textContent = "Not validated";
@@ -595,9 +593,8 @@ function validateProtocol() {
   }
 
   setSchemaStatus(validationResult.warnings.length ? "Valid with warnings" : "Schema valid", validationResult.warnings.length ? "moderate" : "low");
-  workflowGraphGenerated = false;
   els.generateGraphBtn.disabled = false;
-  els.screenBtn.disabled = true;
+  els.screenBtn.disabled = false;
   els.runChip.textContent = "Validated";
 }
 
@@ -606,14 +603,13 @@ function generateWorkflowGraphFromValidated() {
 
   const graph = buildWorkflowGraph(parsedProtocol);
   renderGraph(graph, []);
-  workflowGraphGenerated = true;
   els.graphPanel.classList.remove("hidden");
   els.screenBtn.disabled = false;
   els.runChip.textContent = "Graph generated";
 }
 
 async function screenProtocol() {
-  if (!validationResult?.valid || !parsedProtocol || !workflowGraphGenerated) return;
+  if (!validationResult?.valid || !parsedProtocol) return;
 
   els.screenBtn.disabled = true;
   currentReport = buildComplianceReport(parsedProtocol, validationResult, els.policyProfile.value);
