@@ -5,7 +5,8 @@
   "description": "Static frontend prototype for cloud lab protocol compliance screening.",
   "scripts": {
     "check": "node --check app.js",
-    "test": "npm run check"
+    "smoke": "node tests/smoke.test.js",
+    "test": "npm run check && npm run smoke"
   },
   "keywords": [
     "laboratory-safety",

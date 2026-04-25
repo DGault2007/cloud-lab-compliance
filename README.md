@@ -7,9 +7,12 @@ Frontend prototype for a laboratory safety compliance tool that screens structur
 - Protocol intake with format selection for Native JSON, Native YAML, Autoprotocol, and Emerald Cloud Lab exports.
 - Policy profile selection for common oversight contexts.
 - File upload and paste-modal protocol entry.
-- Validation gate before screening.
-- Workflow graph, rule triggers, overall status, risk level, and confidence display.
-- Submissions dashboard with human review queue, auto-approved list, and CSV export.
+- Client-side parser for JSON plus a small supported YAML subset.
+- Validation gate before screening with blocking errors and review warnings.
+- Deterministic policy-rule screening for biosafety, recombinant nucleic-acid, chemical hygiene, hazardous waste, shipping, human-material, facility, and biosecurity patterns.
+- Generated workflow graph, rule triggers, overall status, risk level, confidence, and review route.
+- Built-in sample protocols covering low, moderate, elevated, flagged, Autoprotocol, Emerald Cloud Lab, and YAML cases.
+- Persistent browser-local submission history with human review queue, auto-approved list, CSV export, and per-run JSON report export.
 - GitHub Pages deployment for static hosting.
 
 ## Threat Levels
@@ -25,11 +28,27 @@ Frontend prototype for a laboratory safety compliance tool that screens structur
 
 Open `index.html` directly in a browser for the fastest local demo.
 
-To run the static checks:
+To run the static checks and smoke tests:
 
 ```bash
 npm test
 ```
+
+The smoke test loads the app in a mocked DOM, validates the default sample, screens it, and then verifies every bundled sample can produce a bounded compliance report.
+
+## Screening Workflow
+
+The current GitHub Pages-compatible implementation runs the full MVP flow in the browser:
+
+1. Parse protocol text as JSON or supported YAML.
+2. Normalize Native JSON, Native YAML, Autoprotocol, or Emerald Cloud Lab style inputs into a common model.
+3. Validate required materials and operations.
+4. Derive workflow facts from materials, operations, requested execution, facility capabilities, and oversight metadata.
+5. Evaluate policy rules for the selected policy profile.
+6. Score risk and confidence.
+7. Render a workflow graph, findings, missing information, result status, and queues.
+
+The LLM review layer is intentionally not included in the GitHub Pages build because client-side API keys would be exposed. The next production step should be a small backend API that receives the normalized protocol and returns a structured LLM review object.
 
 ## Deploy With GitHub Pages
 
@@ -83,19 +102,20 @@ docker compose up --build
 |-- nginx.conf
 |-- package.json
 |-- README.md
+|-- tests/
+|   `-- smoke.test.js
 `-- styles.css
 ```
 
 ## Current Scope
 
-This is a frontend-only MVP. The screening logic is intentionally mocked in `app.js` so the interface can be demonstrated before the backend schema validator, rules engine, and LLM review service are added.
+This is a frontend-only MVP with real client-side parsing, validation, deterministic rules, graph generation, scoring, persistence, and exports. It is suitable for a GitHub Pages hackathon demo.
 
 Recommended next backend pieces:
 
-- JSON Schema or Pydantic protocol validation.
-- Versioned policy-card rules engine.
-- Workflow graph generation from parsed protocol operations.
-- Structured LLM review output.
+- JSON Schema or Pydantic validation that mirrors the browser validator.
+- Versioned policy-card rules stored outside the UI bundle.
+- Server-side structured LLM review output.
 - Persistent submissions API and audit trail.
 
 ## Safety Note

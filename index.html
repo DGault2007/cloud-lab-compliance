@@ -114,10 +114,15 @@
               <div class="protocol-preview" aria-live="polite">
                 <div class="preview-head">
                   <span>Current protocol</span>
-                  <button class="text-action" type="button" id="load-sample">Load sample</button>
+                  <div class="sample-actions">
+                    <select id="sample-select" aria-label="Sample protocol"></select>
+                    <button class="text-action" type="button" id="load-sample">Load sample</button>
+                  </div>
                 </div>
                 <pre id="protocol-preview">No protocol loaded.</pre>
               </div>
+
+              <div class="validation-summary" id="validation-summary" aria-live="polite"></div>
 
               <div class="action-row">
                 <button class="primary-action" type="button" id="validate-btn">Validate schema</button>
@@ -131,7 +136,10 @@
                   <p class="eyebrow">Card 4</p>
                   <h3 id="results-title">Overall Results</h3>
                 </div>
-                <span class="status-pill elevated" id="overall-status">Elevated</span>
+                <div class="panel-actions">
+                  <button class="text-action" type="button" id="export-current-report">Export JSON</button>
+                  <span class="status-pill elevated" id="overall-status">Elevated</span>
+                </div>
               </div>
 
               <div class="score-row">
@@ -217,6 +225,7 @@
                   <thead>
                     <tr>
                       <th>User</th>
+                      <th>Protocol</th>
                       <th>Status</th>
                       <th>Risk</th>
                       <th>Confidence</th>

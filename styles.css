@@ -413,13 +413,34 @@ button:focus-visible {
   overflow: hidden;
 }
 
-.preview-head {
+.preview-head,
+.panel-actions,
+.sample-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.preview-head {
   padding: 10px 12px;
   background: #f8fafc;
+}
+
+.sample-actions {
+  justify-content: flex-end;
+}
+
+.sample-actions select {
+  width: min(240px, 45vw);
+  height: 34px;
+  margin-top: 0;
+  font-size: 0.82rem;
+  text-transform: none;
+}
+
+.panel-actions {
+  justify-content: flex-end;
 }
 
 .text-action {
@@ -441,6 +462,33 @@ pre {
   font-size: 0.82rem;
   line-height: 1.55;
   white-space: pre-wrap;
+}
+
+.validation-summary {
+  display: none;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfdfd;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.validation-summary.active {
+  display: block;
+}
+
+.validation-summary strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ink);
+}
+
+.validation-summary ul {
+  margin: 0;
+  padding-left: 18px;
 }
 
 .action-row {
@@ -596,8 +644,18 @@ pre {
 }
 
 .graph-node.flagged rect {
+  fill: #fef2f2;
+  stroke: var(--red);
+}
+
+.graph-node.elevated rect {
   fill: #fff7ed;
   stroke: var(--orange);
+}
+
+.graph-node.moderate rect {
+  fill: #fff8db;
+  stroke: var(--amber);
 }
 
 .graph-line {
@@ -760,6 +818,8 @@ textarea {
 
   .page-head,
   .panel-title,
+  .preview-head,
+  .panel-actions,
   .action-row {
     align-items: stretch;
     flex-direction: column;
@@ -776,5 +836,14 @@ textarea {
   .primary-action {
     width: 100%;
     min-height: 44px;
+  }
+
+  .sample-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sample-actions select {
+    width: 100%;
   }
 }
