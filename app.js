@@ -1,4 +1,5 @@
 const STORAGE_KEY = "cloudLabComplianceSubmissions.v1";
+const POLICY_PROFILES_KEY = "cloudLabCompliancePolicyProfiles.v1";
 
 const threatLevels = {
   low: {
@@ -27,7 +28,7 @@ const threatLevels = {
   }
 };
 
-const policyProfiles = {
+const defaultPolicyProfiles = {
   "Institutional Biosafety Committee": ["biosafety", "recombinant_na", "biosecurity"],
   "Chemical Hygiene Plan": ["chemical_hygiene", "hazardous_waste"],
   "Remote Cloud Lab Oversight": ["biosafety", "chemical_hygiene", "hazardous_waste", "shipping", "facility"],
@@ -43,6 +44,89 @@ const policyProfiles = {
     "facility"
   ]
 };
+
+const ruleDomains = {
+  biosafety: {
+    label: "Biosafety",
+    description: "Biological materials, containment, propagation, and biohazardous waste signals."
+  },
+  recombinant_na: {
+    label: "Recombinant NA",
+    description: "Recombinant or synthetic nucleic-acid constructs and modification workflows."
+  },
+  biosecurity: {
+    label: "Biosecurity",
+    description: "Controlled, select-agent-like, toxin, or regulated-transfer terms."
+  },
+  chemical_hygiene: {
+    label: "Chemical Hygiene",
+    description: "Hazardous, flammable, toxic, corrosive, or solvent handling."
+  },
+  hazardous_waste: {
+    label: "Hazardous Waste",
+    description: "Biohazardous or hazardous waste streams and disposal metadata."
+  },
+  shipping: {
+    label: "Shipping",
+    description: "Shipment, transfer, or receipt of regulated materials or outputs."
+  },
+  human_materials: {
+    label: "Human Materials",
+    description: "Clinical, human-derived, or specimen-related review metadata."
+  },
+  facility: {
+    label: "Facility Capability",
+    description: "Declared site capability alignment for containment, hoods, and waste handling."
+  }
+};
+
+const ruleCatalog = [
+  { id: "recombinant-na-workflow", domain: "recombinant_na", label: "Recombinant or synthetic nucleic acid workflow" },
+  { id: "biological-propagation", domain: "biosafety", label: "Biological material propagation" },
+  { id: "human-derived-material", domain: "human_materials", label: "Human-derived material handling" },
+  { id: "hazardous-chemical", domain: "chemical_hygiene", label: "Hazardous chemical handling" },
+  { id: "waste-stream", domain: "hazardous_waste", label: "Regulated waste stream" },
+  { id: "shipping-transfer", domain: "shipping", label: "Shipping or transfer review" },
+  { id: "controlled-material", domain: "biosecurity", label: "Controlled material term detected" },
+  { id: "facility-bsl-mismatch", domain: "facility", label: "Facility containment capability missing" },
+  { id: "facility-chemical-mismatch", domain: "facility", label: "Chemical handling capability missing" },
+  { id: "facility-waste-mismatch", domain: "facility", label: "Waste handling capability missing" }
+];
+
+const llmModelConfigs = {
+  "gpt-4.1-mini": {
+    provider: "openai",
+    endpoint: "https://api.openai.com/v1/responses",
+    note: "Uses the OpenAI Responses API directly."
+  },
+  "gpt-4.1": {
+    provider: "openai",
+    endpoint: "https://api.openai.com/v1/responses",
+    note: "Uses the OpenAI Responses API directly."
+  },
+  "o4-mini": {
+    provider: "openai",
+    endpoint: "https://api.openai.com/v1/responses",
+    note: "Uses the OpenAI Responses API directly."
+  },
+  "claude-3-5-sonnet-latest": {
+    provider: "anthropic",
+    endpoint: "",
+    note: "Use a backend proxy that accepts the OpenAI-compatible payload."
+  },
+  "gemini-1.5-pro": {
+    provider: "google",
+    endpoint: "",
+    note: "Use a backend proxy that accepts the OpenAI-compatible payload."
+  },
+  "custom-openai-compatible": {
+    provider: "custom",
+    endpoint: "",
+    note: "Use any proxy or gateway that accepts the OpenAI Responses-style payload."
+  }
+};
+
+let policyProfiles = loadPolicyProfiles();
 
 const sampleProtocols = [
   {
@@ -329,6 +413,7 @@ let loadedProtocol = "";
 let parsedProtocol = null;
 let validationResult = null;
 let currentReport = null;
+let workflowGraphGenerated = false;
 let submissions = loadSubmissions();
 
 const els = {
@@ -346,6 +431,7 @@ const els = {
   validationSummary: document.getElementById("validation-summary"),
   loadSample: document.getElementById("load-sample"),
   validateBtn: document.getElementById("validate-btn"),
+  generateGraphBtn: document.getElementById("generate-graph-btn"),
   screenBtn: document.getElementById("screen-btn"),
   schemaStatus: document.getElementById("schema-status"),
   runChip: document.getElementById("run-chip"),
@@ -379,7 +465,16 @@ const els = {
   approvedList: document.getElementById("approved-list"),
   approvedCount: document.getElementById("approved-count"),
   exportReport: document.getElementById("export-report"),
-  exportCurrentReport: document.getElementById("export-current-report")
+  exportCurrentReport: document.getElementById("export-current-report"),
+  policyProfileEditor: document.getElementById("policy-profile-editor"),
+  policyProfileName: document.getElementById("policy-profile-name"),
+  policyDomainList: document.getElementById("policy-domain-list"),
+  policyRulesList: document.getElementById("policy-rules-list"),
+  policyRuleCount: document.getElementById("policy-rule-count"),
+  policySaveStatus: document.getElementById("policy-save-status"),
+  newPolicyProfile: document.getElementById("new-policy-profile"),
+  savePolicyProfile: document.getElementById("save-policy-profile"),
+  resetPolicies: document.getElementById("reset-policies")
 };
 
 function populateSamples() {
@@ -388,15 +483,65 @@ function populateSamples() {
     .join("");
 }
 
+function populatePolicyProfiles(selectedName = els.policyProfile.value || "Full Safety Compliance Bundle") {
+  const names = Object.keys(policyProfiles);
+  const options = names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+  els.policyProfile.innerHTML = options;
+  els.policyProfileEditor.innerHTML = options;
+
+  const nextName = policyProfiles[selectedName] ? selectedName : names[0];
+  els.policyProfile.value = nextName;
+  els.policyProfileEditor.value = nextName;
+  loadPolicyProfileIntoEditor(nextName);
+}
+
+function loadPolicyProfileIntoEditor(name) {
+  const domains = policyProfiles[name] || [];
+  els.policyProfileName.value = name || "";
+  els.policyDomainList.innerHTML = Object.entries(ruleDomains)
+    .map(
+      ([domain, info]) => `
+        <label class="domain-option">
+          <input type="checkbox" value="${escapeHtml(domain)}" ${domains.includes(domain) ? "checked" : ""} />
+          <span>
+            <strong>${escapeHtml(info.label)}</strong>
+            <p>${escapeHtml(info.description)}</p>
+          </span>
+        </label>
+      `
+    )
+    .join("");
+  renderPolicyRules(domains);
+}
+
+function renderPolicyRules(domains) {
+  const rules = ruleCatalog.filter((rule) => domains.includes(rule.domain));
+  els.policyRuleCount.textContent = `${rules.length} rules`;
+  els.policyRulesList.innerHTML =
+    rules
+      .map(
+        (rule) => `
+        <article class="trigger-item moderate">
+          <strong>${escapeHtml(rule.label)}</strong>
+          <p>${escapeHtml(ruleDomains[rule.domain]?.label || rule.domain)} domain - rule id ${escapeHtml(rule.id)}</p>
+        </article>
+      `
+      )
+      .join("") ||
+    `<article class="trigger-item low"><strong>No rules selected</strong><p>Select at least one oversight domain to enable screening rules.</p></article>`;
+}
+
 function setProtocolContent(content, label = "Pasted protocol", format = null) {
   loadedProtocol = String(content || "").trim();
   parsedProtocol = null;
   validationResult = null;
   currentReport = null;
+  workflowGraphGenerated = false;
   els.preview.textContent = loadedProtocol || "No protocol loaded.";
   els.fileName.textContent = label;
   els.schemaStatus.textContent = "Not validated";
   els.schemaStatus.className = "status-pill neutral";
+  els.generateGraphBtn.disabled = true;
   els.screenBtn.disabled = true;
   els.runChip.textContent = "Draft";
   clearValidationSummary();
@@ -444,17 +589,31 @@ function validateProtocol() {
 
   if (!validationResult.valid) {
     setSchemaStatus("Needs fields", "moderate");
+    els.generateGraphBtn.disabled = true;
     els.screenBtn.disabled = true;
     return;
   }
 
   setSchemaStatus(validationResult.warnings.length ? "Valid with warnings" : "Schema valid", validationResult.warnings.length ? "moderate" : "low");
-  els.screenBtn.disabled = false;
+  workflowGraphGenerated = false;
+  els.generateGraphBtn.disabled = false;
+  els.screenBtn.disabled = true;
   els.runChip.textContent = "Validated";
 }
 
-async function screenProtocol() {
+function generateWorkflowGraphFromValidated() {
   if (!validationResult?.valid || !parsedProtocol) return;
+
+  const graph = buildWorkflowGraph(parsedProtocol);
+  renderGraph(graph, []);
+  workflowGraphGenerated = true;
+  els.graphPanel.classList.remove("hidden");
+  els.screenBtn.disabled = false;
+  els.runChip.textContent = "Graph generated";
+}
+
+async function screenProtocol() {
+  if (!validationResult?.valid || !parsedProtocol || !workflowGraphGenerated) return;
 
   els.screenBtn.disabled = true;
   currentReport = buildComplianceReport(parsedProtocol, validationResult, els.policyProfile.value);
@@ -718,7 +877,7 @@ function validateNormalizedProtocol(protocol) {
 }
 
 function buildComplianceReport(protocol, validation, policyName) {
-  const activeDomains = policyProfiles[policyName] || policyProfiles["Full Safety Compliance Bundle"];
+  const activeDomains = getPolicyDomains(policyName);
   const graph = buildWorkflowGraph(protocol);
   const facts = deriveFacts(protocol, graph);
   const triggerCandidates = evaluateRules(protocol, facts);
@@ -746,6 +905,7 @@ function buildComplianceReport(protocol, validation, policyName) {
       status: "not_configured",
       model: "",
       summary: "",
+      threatLevel: "",
       rulesViolated: [],
       confidence: null,
       error: ""
@@ -765,6 +925,7 @@ async function enrichReportWithLlm(report) {
       status: "not_configured",
       model: config.model,
       summary: "",
+      threatLevel: "",
       rulesViolated: [],
       confidence: null,
       error: ""
@@ -776,6 +937,7 @@ async function enrichReportWithLlm(report) {
     status: "pending",
     model: config.model,
     summary: "",
+    threatLevel: "",
     rulesViolated: [],
     confidence: null,
     error: ""
@@ -789,15 +951,18 @@ async function enrichReportWithLlm(report) {
       status: "completed",
       model: config.model,
       summary: llmReview.summary || "",
+      threatLevel: normalizeLevel(llmReview.threat_level || ""),
       rulesViolated: Array.isArray(llmReview.rules_violated) ? llmReview.rules_violated : [],
       confidence: typeof llmReview.confidence === "number" ? llmReview.confidence : null,
       error: ""
     };
+    applyLlmThreatToReport(report);
   } catch (error) {
     report.llmReview = {
       status: "failed",
       model: config.model,
       summary: "",
+      threatLevel: "",
       rulesViolated: [],
       confidence: null,
       error: error.message || "LLM review failed."
@@ -806,14 +971,38 @@ async function enrichReportWithLlm(report) {
 }
 
 function getLlmConfig() {
+  const modelInfo = llmModelConfigs[els.llmModel.value] || llmModelConfigs["gpt-4.1-mini"];
   return {
     apiKey: els.llmApiKey.value.trim(),
     model: els.llmModel.value.trim() || "gpt-4.1-mini",
-    endpoint: els.llmEndpoint.value.trim() || "https://api.openai.com/v1/responses"
+    provider: modelInfo.provider,
+    endpoint: els.llmEndpoint.value.trim() || modelInfo.endpoint
   };
 }
 
+function applyLlmThreatToReport(report) {
+  const llmLevel = normalizeLevel(report.llmReview.threatLevel);
+  if (!llmLevel) return;
+
+  report.level = llmLevel;
+  report.risk = llmLevel === "low" ? "Low" : llmLevel === "moderate" ? "Medium" : "High";
+  report.route = {
+    low: "Auto-Triage",
+    moderate: "Clarification Queue",
+    elevated: "Compliance Review Queue",
+    flagged: "Mandatory Human Review"
+  }[llmLevel];
+
+  if (typeof report.llmReview.confidence === "number") {
+    report.confidence = clamp(Math.round(report.llmReview.confidence * 100), 35, 98);
+  }
+}
+
 async function requestLlmReview(report, config) {
+  if (!config.endpoint) {
+    throw new Error(`${toTitle(config.provider)} models need a configured proxy endpoint for browser-safe review.`);
+  }
+
   const payload = {
     model: config.model,
     instructions:
@@ -837,6 +1026,11 @@ async function requestLlmReview(report, config) {
               minimum: 0,
               maximum: 1
             },
+            threat_level: {
+              type: "string",
+              enum: ["low", "moderate", "elevated", "flagged"],
+              description: "Final LLM-recommended threat level for this protocol."
+            },
             rules_violated: {
               type: "array",
               items: {
@@ -858,7 +1052,7 @@ async function requestLlmReview(report, config) {
               }
             }
           },
-          required: ["summary", "confidence", "rules_violated"]
+          required: ["summary", "confidence", "threat_level", "rules_violated"]
         }
       }
     }
@@ -1327,7 +1521,8 @@ function getLlmStatusText(llmReview) {
   if (llmReview.status === "failed") return "Failed";
   if (llmReview.status === "completed") {
     const confidence = typeof llmReview.confidence === "number" ? `, ${Math.round(llmReview.confidence * 100)}%` : "";
-    return `Completed (${llmReview.model}${confidence})`;
+    const threat = llmReview.threatLevel ? `, ${toTitle(llmReview.threatLevel)}` : "";
+    return `Completed (${llmReview.model}${confidence}${threat})`;
   }
   return "Not configured";
 }
@@ -1398,7 +1593,8 @@ function renderGraph(graph, triggers) {
 function renderTriggers(triggers, missingInformation, llmReview = null) {
   const visibleTriggers = triggers.filter((trigger) => trigger.level !== "low");
   const displayTriggers = visibleTriggers.length ? visibleTriggers : triggers;
-  els.rulesCount.textContent = `${visibleTriggers.length} flagged`;
+  const llmFindingCount = llmReview?.status === "completed" ? llmReview.rulesViolated.length : 0;
+  els.rulesCount.textContent = `${visibleTriggers.length + llmFindingCount} flagged`;
   els.rulesCount.className = `status-pill ${currentReport.level}`;
 
   const triggerMarkup = displayTriggers
@@ -1426,7 +1622,7 @@ function renderTriggers(triggers, missingInformation, llmReview = null) {
       ? llmReview.rulesViolated
           .map(
             (finding) => `
-        <article class="trigger-item ${normalizeLevel(finding.severity)}">
+        <article class="trigger-item ${normalizeLevel(finding.severity, "moderate")}">
           <strong>LLM: ${escapeHtml(finding.rule)}</strong>
           <p>${escapeHtml(finding.reason)}${finding.source_steps?.length ? ` Steps: ${escapeHtml(finding.source_steps.join(", "))}.` : ""}</p>
         </article>
@@ -1519,7 +1715,7 @@ function saveReportSubmission(report) {
     status: threatLevels[report.level].action,
     risk: threatLevels[report.level].label,
     confidence: report.confidence,
-    findings: report.triggers.filter((trigger) => trigger.level !== "low").length,
+    findings: getFindingCount(report),
     policy: report.policy
   };
 
@@ -1535,6 +1731,57 @@ function loadSubmissions() {
   } catch {
     return seedSubmissions;
   }
+}
+
+function loadPolicyProfiles() {
+  try {
+    const stored = localStorage.getItem(POLICY_PROFILES_KEY);
+    const parsed = stored ? JSON.parse(stored) : null;
+    if (parsed && typeof parsed === "object" && Object.keys(parsed).length) {
+      return { ...defaultPolicyProfiles, ...parsed };
+    }
+  } catch {
+    // Fall through to defaults.
+  }
+  return { ...defaultPolicyProfiles };
+}
+
+function persistPolicyProfiles() {
+  localStorage.setItem(POLICY_PROFILES_KEY, JSON.stringify(policyProfiles));
+}
+
+function getPolicyDomains(policyName) {
+  return policyProfiles[policyName] || policyProfiles["Full Safety Compliance Bundle"] || Object.keys(ruleDomains);
+}
+
+function getCheckedPolicyDomains() {
+  return Array.from(els.policyDomainList.querySelectorAll("input[type='checkbox']"))
+    .filter((input) => input.checked)
+    .map((input) => input.value);
+}
+
+function savePolicyProfileFromEditor() {
+  const name = els.policyProfileName.value.trim();
+  const domains = getCheckedPolicyDomains();
+  if (!name || !domains.length) {
+    els.policySaveStatus.textContent = "Needs name/rules";
+    els.policySaveStatus.className = "status-pill moderate";
+    return;
+  }
+
+  policyProfiles[name] = domains;
+  persistPolicyProfiles();
+  populatePolicyProfiles(name);
+  els.policySaveStatus.textContent = "Saved locally";
+  els.policySaveStatus.className = "status-pill low";
+}
+
+function resetPolicyProfiles() {
+  policyProfiles = { ...defaultPolicyProfiles };
+  persistPolicyProfiles();
+  populatePolicyProfiles("Full Safety Compliance Bundle");
+  els.policySaveStatus.textContent = "Defaults restored";
+  els.policySaveStatus.className = "status-pill low";
 }
 
 function exportSubmissionsReport() {
@@ -1587,8 +1834,8 @@ function getLevelColor(level) {
   }[level];
 }
 
-function normalizeLevel(level) {
-  return ["low", "moderate", "elevated", "flagged"].includes(level) ? level : "moderate";
+function normalizeLevel(level, fallback = "") {
+  return ["low", "moderate", "elevated", "flagged"].includes(level) ? level : fallback;
 }
 
 function strongestLevel(current = "neutral", next = "neutral") {
@@ -1662,7 +1909,30 @@ els.protocolFile.addEventListener("change", async (event) => {
 
 els.loadSample.addEventListener("click", loadSelectedSample);
 els.validateBtn.addEventListener("click", validateProtocol);
+els.generateGraphBtn.addEventListener("click", generateWorkflowGraphFromValidated);
 els.screenBtn.addEventListener("click", screenProtocol);
+els.llmModel.addEventListener("change", () => {
+  const modelInfo = llmModelConfigs[els.llmModel.value];
+  if (modelInfo?.endpoint) {
+    els.llmEndpoint.value = modelInfo.endpoint;
+  } else {
+    els.llmEndpoint.value = "";
+  }
+});
+els.policyProfileEditor.addEventListener("change", () => loadPolicyProfileIntoEditor(els.policyProfileEditor.value));
+els.policyDomainList.addEventListener("change", () => renderPolicyRules(getCheckedPolicyDomains()));
+els.newPolicyProfile.addEventListener("click", () => {
+  els.policyProfileEditor.value = "";
+  els.policyProfileName.value = "New policy profile";
+  els.policyDomainList.querySelectorAll("input[type='checkbox']").forEach((input) => {
+    input.checked = false;
+  });
+  renderPolicyRules([]);
+  els.policySaveStatus.textContent = "Draft";
+  els.policySaveStatus.className = "status-pill neutral";
+});
+els.savePolicyProfile.addEventListener("click", savePolicyProfileFromEditor);
+els.resetPolicies.addEventListener("click", resetPolicyProfiles);
 
 els.openPasteModal.addEventListener("click", () => {
   els.pasteArea.value = loadedProtocol;
@@ -1687,5 +1957,6 @@ els.exportReport.addEventListener("click", exportSubmissionsReport);
 els.exportCurrentReport.addEventListener("click", exportCurrentReport);
 
 populateSamples();
+populatePolicyProfiles("Full Safety Compliance Bundle");
 loadSelectedSample();
 renderSubmissions();

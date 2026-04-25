@@ -20,6 +20,8 @@
         <nav class="nav-tabs" aria-label="Views">
           <button class="nav-tab active" type="button" data-view="screening">Screening</button>
           <button class="nav-tab" type="button" data-view="submissions">Submissions</button>
+          <button class="nav-tab" type="button" data-view="policies">Policy Profiles</button>
+          <button class="nav-tab" type="button" data-view="help">Help</button>
         </nav>
 
         <section class="threat-key" aria-label="Threat levels">
@@ -105,10 +107,17 @@
                 </label>
                 <label>
                   <span>LLM model</span>
-                  <input id="llm-model" type="text" value="gpt-4.1-mini" />
+                  <select id="llm-model">
+                    <option value="gpt-4.1-mini" data-provider="openai" data-endpoint="https://api.openai.com/v1/responses">GPT-4.1 Mini</option>
+                    <option value="gpt-4.1" data-provider="openai" data-endpoint="https://api.openai.com/v1/responses">GPT-4.1</option>
+                    <option value="o4-mini" data-provider="openai" data-endpoint="https://api.openai.com/v1/responses">OpenAI o4-mini</option>
+                    <option value="claude-3-5-sonnet-latest" data-provider="anthropic" data-endpoint="">Claude Sonnet</option>
+                    <option value="gemini-1.5-pro" data-provider="google" data-endpoint="">Gemini Pro</option>
+                    <option value="custom-openai-compatible" data-provider="custom" data-endpoint="">Custom OpenAI-compatible</option>
+                  </select>
                 </label>
                 <label class="wide-label">
-                  <span>LLM endpoint</span>
+                  <span>LLM endpoint or proxy</span>
                   <input id="llm-endpoint" type="url" value="https://api.openai.com/v1/responses" />
                 </label>
               </div>
@@ -141,6 +150,7 @@
 
               <div class="action-row">
                 <button class="primary-action" type="button" id="validate-btn">Validate schema</button>
+                <button class="primary-action graph-action" type="button" id="generate-graph-btn" disabled>Generate graph</button>
                 <button class="primary-action screen" type="button" id="screen-btn" disabled>Screen protocol</button>
               </div>
             </section>
@@ -287,6 +297,104 @@
                 <span class="status-pill low" id="approved-count">2</span>
               </div>
               <div class="queue-list" id="approved-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="policies-view" aria-labelledby="policies-title">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Configuration</p>
+              <h2 id="policies-title">Policy Profiles</h2>
+            </div>
+            <button class="primary-action compact" type="button" id="reset-policies">Reset defaults</button>
+          </div>
+
+          <div class="policy-grid">
+            <section class="panel policy-editor-panel" aria-labelledby="policy-editor-title">
+              <div class="panel-title">
+                <div>
+                  <p class="eyebrow">Edit or Create</p>
+                  <h3 id="policy-editor-title">Profile Builder</h3>
+                </div>
+                <span class="status-pill neutral" id="policy-save-status">Saved locally</span>
+              </div>
+
+              <div class="form-grid">
+                <label>
+                  <span>Existing profile</span>
+                  <select id="policy-profile-editor"></select>
+                </label>
+                <label>
+                  <span>Profile name</span>
+                  <input id="policy-profile-name" type="text" />
+                </label>
+              </div>
+
+              <div class="domain-checklist" id="policy-domain-list"></div>
+
+              <div class="action-row">
+                <button class="secondary-action" type="button" id="new-policy-profile">New profile</button>
+                <button class="primary-action" type="button" id="save-policy-profile">Save profile</button>
+              </div>
+            </section>
+
+            <section class="panel policy-rules-panel" aria-labelledby="policy-rules-title">
+              <div class="panel-title">
+                <div>
+                  <p class="eyebrow">Rules Used</p>
+                  <h3 id="policy-rules-title">Selected Profile Rules</h3>
+                </div>
+                <span class="status-pill neutral" id="policy-rule-count">0 rules</span>
+              </div>
+              <div class="trigger-list" id="policy-rules-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="help-view" aria-labelledby="help-title">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Guide</p>
+              <h2 id="help-title">How This App Works</h2>
+            </div>
+          </div>
+
+          <div class="help-grid">
+            <section class="panel help-panel">
+              <h3>What It Is</h3>
+              <p>
+                Cloud Lab Compliance Screening is a proof-of-concept triage tool for structured remote lab protocols.
+                It helps identify workflows that may require additional institutional safety or compliance review before execution.
+              </p>
+            </section>
+
+            <section class="panel help-panel">
+              <h3>Screening Flow</h3>
+              <ol>
+                <li>Load a protocol by sample, file upload, or paste.</li>
+                <li>Validate the schema and normalize supported protocol formats.</li>
+                <li>Generate the workflow graph from materials, operations, outputs, and dependencies.</li>
+                <li>Screen against the selected policy profile and deterministic rule catalog.</li>
+                <li>Optionally enrich the result with an LLM reviewer summary and suggested rule findings.</li>
+                <li>Route the result into the submissions table, human review queue, or auto-approved list.</li>
+              </ol>
+            </section>
+
+            <section class="panel help-panel">
+              <h3>What The Scores Mean</h3>
+              <p>
+                Threat levels combine risk, confidence, missing metadata, rule severity, and optional LLM threat assessment.
+                The app is designed for oversight support, not autonomous approval or execution.
+              </p>
+            </section>
+
+            <section class="panel help-panel">
+              <h3>Policy Profiles</h3>
+              <p>
+                A policy profile is a saved set of oversight domains. Each domain enables specific screening rules, such as
+                recombinant nucleic-acid review, hazardous waste handling, shipping, or facility capability checks.
+              </p>
             </section>
           </div>
         </section>

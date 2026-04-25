@@ -15,6 +15,10 @@ Live demo: https://dgault2007.github.io/cloud-lab-compliance/
 - Generated workflow graph, rule triggers, overall status, risk level, confidence, and review route.
 - Optional OpenAI-compatible LLM review after screening, with Card 4 summary enrichment and Card 3 policy findings.
 - Protocol title, user, and LLM review status in the overall results card.
+- Separate workflow graph generation step between validation and screening.
+- Editable policy profiles stored in browser localStorage, with visible rule-domain mapping.
+- Help tab explaining the app, screening flow, scoring, and policy profiles.
+- LLM model dropdown with OpenAI, Claude, Gemini, and custom proxy-oriented options.
 - Built-in sample protocols covering low, moderate, elevated, flagged, Autoprotocol, Emerald Cloud Lab, and YAML cases.
 - Persistent browser-local submission history with human review queue, auto-approved list, CSV export, and per-run JSON report export.
 - GitHub Pages deployment for static hosting.
@@ -47,11 +51,28 @@ The current GitHub Pages-compatible implementation runs the full MVP flow in the
 1. Parse protocol text as JSON or supported YAML.
 2. Normalize Native JSON, Native YAML, Autoprotocol, or Emerald Cloud Lab style inputs into a common model.
 3. Validate required materials and operations.
-4. Derive workflow facts from materials, operations, requested execution, facility capabilities, and oversight metadata.
-5. Evaluate policy rules for the selected policy profile.
-6. Score risk and confidence.
-7. Optionally send the normalized screening packet to an OpenAI-compatible LLM endpoint.
-8. Render a workflow graph, findings, missing information, result status, LLM summary, and queues.
+4. Generate a workflow graph from materials, operations, outputs, and dependencies.
+5. Derive workflow facts from materials, operations, requested execution, facility capabilities, and oversight metadata.
+6. Evaluate rules enabled by the selected editable policy profile.
+7. Score risk and confidence.
+8. Optionally send the normalized screening packet to an OpenAI-compatible LLM endpoint.
+9. Update the final result when the LLM returns a threat level, summary, confidence, and rule findings.
+10. Render findings, missing information, result status, LLM summary, and queues.
+
+## Policy Profiles
+
+Policy profiles are editable in the **Policy Profiles** tab. Each profile enables one or more rule domains:
+
+- Biosafety
+- Recombinant nucleic acid
+- Biosecurity
+- Chemical hygiene
+- Hazardous waste
+- Shipping
+- Human materials
+- Facility capability
+
+Profile changes are saved locally in the browser. The selected profile controls which deterministic rules are active during screening.
 
 ## LLM Review
 
@@ -60,6 +81,8 @@ The GitHub Pages build includes an optional runtime LLM call using the OpenAI Re
 - Endpoint defaults to `https://api.openai.com/v1/responses`.
 - Model defaults to `gpt-4.1-mini`.
 - API keys are entered at runtime and are not committed to the repository.
+- Claude, Gemini, and custom options are included for proxy-backed deployments. In the browser-only GitHub Pages build, non-OpenAI providers require a configured proxy endpoint.
+- If the LLM returns a `threat_level`, the final Card 4 status updates to that LLM-recommended level.
 - For production, route LLM calls through a small backend proxy so browser clients never handle long-lived API keys.
 
 If no API key is entered, deterministic screening still runs and the LLM status displays as `Not configured`.
@@ -123,7 +146,7 @@ docker compose up --build
 
 ## Current Scope
 
-This is a frontend-only MVP with real client-side parsing, validation, deterministic rules, graph generation, scoring, optional LLM review, persistence, and exports. It is suitable for a GitHub Pages hackathon demo.
+This is a frontend-only MVP with real client-side parsing, validation, editable policies, deterministic rules, graph generation, scoring, optional LLM review, persistence, and exports. It is suitable for a GitHub Pages hackathon demo.
 
 Recommended next backend pieces:
 
