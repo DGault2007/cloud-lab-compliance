@@ -18,7 +18,7 @@ Live demo: https://dgault2007.github.io/cloud-lab-compliance/
 - Separate workflow graph generation step between validation and screening.
 - Editable policy profiles stored in browser localStorage, with visible rule-domain mapping.
 - Help tab explaining the app, screening flow, scoring, and policy profiles.
-- LLM model dropdown with OpenAI, Claude, Gemini, and custom proxy-oriented options.
+- LLM model dropdown with Gemini 2.5 Flash first, plus OpenAI, Claude, Gemini, and custom proxy-oriented options.
 - Built-in sample protocols covering low, moderate, elevated, flagged, Autoprotocol, Emerald Cloud Lab, and YAML cases.
 - Persistent browser-local submission history with human review queue, auto-approved list, CSV export, and per-run JSON report export.
 - GitHub Pages deployment for static hosting.
@@ -78,10 +78,11 @@ Profile changes are saved locally in the browser. The selected profile controls 
 
 The GitHub Pages build includes an optional runtime LLM call using the OpenAI Responses API format.
 
-- Endpoint defaults to `https://api.openai.com/v1/responses`.
-- Model defaults to `gpt-4.1-mini`.
+- Endpoint defaults to Gemini 2.5 Flash at `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`.
+- Model defaults to `gemini-2.5-flash`.
 - API keys are entered at runtime and are not committed to the repository.
-- Claude, Gemini, and custom options are included for proxy-backed deployments. In the browser-only GitHub Pages build, non-OpenAI providers require a configured proxy endpoint.
+- Gemini calls use the `generateContent` REST API with the `x-goog-api-key` header.
+- Claude and custom options are included for proxy-backed deployments. In the browser-only GitHub Pages build, non-Gemini/non-OpenAI providers require a configured proxy endpoint.
 - If the LLM returns a `threat_level`, the final Card 4 status updates to that LLM-recommended level.
 - For production, route LLM calls through a small backend proxy so browser clients never handle long-lived API keys.
 
@@ -158,3 +159,7 @@ Recommended next backend pieces:
 ## Safety Note
 
 This project is designed for triage and oversight support. It should not automatically approve, optimize, or execute laboratory work without appropriate human compliance review.
+
+## Credits
+
+Copyright (c) Dustin Gault - 2026.

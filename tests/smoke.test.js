@@ -136,6 +136,7 @@ const resultLabel = new MockElement();
 
 const storage = new Map();
 let fetchCalls = 0;
+const fetchRequests = [];
 const context = {
   Blob: class Blob {
     constructor(parts, options) {
@@ -164,25 +165,28 @@ const context = {
     getItem: (key) => storage.get(key) || null,
     setItem: (key, value) => storage.set(key, value)
   },
-  fetch: async () => {
+  fetch: async (url, options = {}) => {
     fetchCalls += 1;
+    fetchRequests.push({ url, options });
+    const review = {
+      summary: "LLM reviewer summary for compliance triage.",
+      confidence: 0.86,
+      threat_level: "flagged",
+      rules_violated: [
+        {
+          rule: "IBC review",
+          severity: "elevated",
+          reason: "Recombinant workflow requires additional oversight metadata.",
+          source_steps: ["op-2"]
+        }
+      ]
+    };
     return {
       ok: true,
-      json: async () => ({
-        output_text: JSON.stringify({
-          summary: "LLM reviewer summary for compliance triage.",
-          confidence: 0.86,
-          threat_level: "flagged",
-          rules_violated: [
-            {
-              rule: "IBC review",
-              severity: "elevated",
-              reason: "Recombinant workflow requires additional oversight metadata.",
-              source_steps: ["op-2"]
-            }
-          ]
-        })
-      })
+      json: async () =>
+        String(url).includes("generativelanguage.googleapis.com")
+          ? { candidates: [{ content: { parts: [{ text: JSON.stringify(review) }] } }] }
+          : { output_text: JSON.stringify(review) }
     };
   },
   console
@@ -220,10 +224,19 @@ vm.runInContext(source, context);
   await vm.runInContext("loadSelectedSample(); validateProtocol(); screenProtocol();", context);
   const llmReport = vm.runInContext("currentReport", context);
   assert.equal(fetchCalls, 1);
+  assert.equal(fetchRequests[0].options.headers.Authorization, "Bearer test-key");
   assert.equal(llmReport.llmReview.status, "completed");
   assert.equal(llmReport.level, "flagged");
   assert.equal(elements["result-summary"].textContent, "LLM reviewer summary for compliance triage.");
   assert.match(elements["trigger-list"].innerHTML, /LLM: IBC review/);
+
+  elements["llm-model"].value = "gemini-2.5-flash";
+  elements["llm-endpoint"].value = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+  await vm.runInContext("loadSelectedSample(); validateProtocol(); screenProtocol();", context);
+  assert.equal(fetchCalls, 2);
+  assert.equal(fetchRequests[1].url, "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent");
+  assert.equal(fetchRequests[1].options.headers["x-goog-api-key"], "test-key");
+  assert.match(fetchRequests[1].options.body, /contents/);
 
   console.log("Smoke test passed");
 })().catch((error) => {

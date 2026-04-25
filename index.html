@@ -63,7 +63,6 @@
             <div>
               <h2 id="screening-title">Biosafety Workflow Analyzer</h2>
             </div>
-            <div class="run-chip" id="run-chip">Draft</div>
           </div>
 
           <div class="screening-grid">
@@ -100,12 +99,13 @@
 
               <div class="llm-config">
                 <label>
-                  <span>OpenAI API key</span>
+                  <span>LLM API key</span>
                   <input id="llm-api-key" type="password" autocomplete="off" placeholder="Session only" />
                 </label>
                 <label>
                   <span>LLM model</span>
                   <select id="llm-model">
+                    <option value="gemini-2.5-flash" data-provider="google" data-endpoint="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent">Gemini 2.5 Flash</option>
                     <option value="gpt-4.1-mini" data-provider="openai" data-endpoint="https://api.openai.com/v1/responses">GPT-4.1 Mini</option>
                     <option value="gpt-4.1" data-provider="openai" data-endpoint="https://api.openai.com/v1/responses">GPT-4.1</option>
                     <option value="o4-mini" data-provider="openai" data-endpoint="https://api.openai.com/v1/responses">OpenAI o4-mini</option>
@@ -116,7 +116,7 @@
                 </label>
                 <label class="wide-label">
                   <span>LLM endpoint or proxy</span>
-                  <input id="llm-endpoint" type="url" value="https://api.openai.com/v1/responses" />
+                  <input id="llm-endpoint" type="url" value="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent" />
                 </label>
               </div>
 
@@ -391,9 +391,36 @@
                 recombinant nucleic-acid review, hazardous waste handling, shipping, or facility capability checks.
               </p>
             </section>
+
+            <section class="panel help-panel">
+              <h3>Protocol Syntax</h3>
+              <p>
+                Protocols can be JSON or the supported YAML subset. Required fields are materials and operations. Recommended
+                fields are protocol_id, title, user, facility.declared_capabilities, requested_execution, and oversight_metadata.
+              </p>
+              <pre>{
+  "protocol_id": "demo-001",
+  "title": "Routine workflow",
+  "user": "Researcher Name",
+  "facility": {
+    "declared_capabilities": ["bsl2", "chemical_hood", "hazardous_waste_pickup"]
+  },
+  "materials": [
+    { "id": "mat-1", "type": "cell_line", "biosafety_level": "BSL-2" }
+  ],
+  "operations": [
+    { "id": "op-1", "type": "assay", "inputs": ["mat-1"], "outputs": ["result"] }
+  ],
+  "oversight_metadata": {
+    "ibc_protocol_id": "IBC-2026-001",
+    "disposal_plan": "approved waste stream"
+  }
+}</pre>
+            </section>
           </div>
         </section>
       </main>
+      <footer class="app-footer">&copy; Dustin Gault - 2026</footer>
     </div>
 
     <div class="modal-backdrop hidden" id="paste-modal" role="dialog" aria-modal="true" aria-labelledby="paste-title">

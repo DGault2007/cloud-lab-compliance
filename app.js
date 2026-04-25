@@ -94,6 +94,11 @@ const ruleCatalog = [
 ];
 
 const llmModelConfigs = {
+  "gemini-2.5-flash": {
+    provider: "google",
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+    note: "Uses the Gemini generateContent REST API directly."
+  },
   "gpt-4.1-mini": {
     provider: "openai",
     endpoint: "https://api.openai.com/v1/responses",
@@ -116,8 +121,8 @@ const llmModelConfigs = {
   },
   "gemini-1.5-pro": {
     provider: "google",
-    endpoint: "",
-    note: "Use a backend proxy that accepts the OpenAI-compatible payload."
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent",
+    note: "Uses the Gemini generateContent REST API directly."
   },
   "custom-openai-compatible": {
     provider: "custom",
@@ -520,7 +525,7 @@ function renderPolicyRules(domains) {
     rules
       .map(
         (rule) => `
-        <article class="trigger-item moderate">
+        <article class="trigger-item ${getRuleDisplayLevel(rule)}">
           <strong>${escapeHtml(rule.label)}</strong>
           <p>${escapeHtml(ruleDomains[rule.domain]?.label || rule.domain)} domain - rule id ${escapeHtml(rule.id)}</p>
         </article>
@@ -528,6 +533,12 @@ function renderPolicyRules(domains) {
       )
       .join("") ||
     `<article class="trigger-item low"><strong>No rules selected</strong><p>Select at least one oversight domain to enable screening rules.</p></article>`;
+}
+
+function getRuleDisplayLevel(rule) {
+  if (rule.domain === "biosecurity") return "flagged";
+  if (["biosafety", "recombinant_na", "human_materials", "shipping"].includes(rule.domain)) return "elevated";
+  return "moderate";
 }
 
 function setProtocolContent(content, label = "Pasted protocol", format = null) {
@@ -541,7 +552,7 @@ function setProtocolContent(content, label = "Pasted protocol", format = null) {
   els.schemaStatus.className = "status-pill neutral";
   els.generateGraphBtn.disabled = true;
   els.screenBtn.disabled = true;
-  els.runChip.textContent = "Draft";
+  setRunStatus("Draft");
   clearValidationSummary();
   hideScreenedCards();
 
@@ -595,7 +606,7 @@ function validateProtocol() {
   setSchemaStatus(validationResult.warnings.length ? "Valid with warnings" : "Schema valid", validationResult.warnings.length ? "moderate" : "low");
   els.generateGraphBtn.disabled = false;
   els.screenBtn.disabled = false;
-  els.runChip.textContent = "Validated";
+  setRunStatus("Validated");
 }
 
 function generateWorkflowGraphFromValidated() {
@@ -605,7 +616,7 @@ function generateWorkflowGraphFromValidated() {
   renderGraph(graph, []);
   els.graphPanel.classList.remove("hidden");
   els.screenBtn.disabled = false;
-  els.runChip.textContent = "Graph generated";
+  setRunStatus("Graph generated");
 }
 
 async function screenProtocol() {
@@ -628,7 +639,7 @@ async function screenProtocol() {
     renderTriggers(currentReport.triggers, currentReport.missingInformation, currentReport.llmReview);
     saveReportSubmission(currentReport);
     els.screenBtn.disabled = false;
-    els.runChip.textContent = "Screened";
+    setRunStatus("Screened");
   }
 }
 
@@ -938,7 +949,7 @@ async function enrichReportWithLlm(report) {
     confidence: null,
     error: ""
   };
-  els.runChip.textContent = "LLM reviewing";
+  setRunStatus("LLM reviewing");
   renderReport(report);
 
   try {
@@ -967,10 +978,10 @@ async function enrichReportWithLlm(report) {
 }
 
 function getLlmConfig() {
-  const modelInfo = llmModelConfigs[els.llmModel.value] || llmModelConfigs["gpt-4.1-mini"];
+  const modelInfo = llmModelConfigs[els.llmModel.value] || llmModelConfigs["gemini-2.5-flash"];
   return {
     apiKey: els.llmApiKey.value.trim(),
-    model: els.llmModel.value.trim() || "gpt-4.1-mini",
+    model: els.llmModel.value.trim() || "gemini-2.5-flash",
     provider: modelInfo.provider,
     endpoint: els.llmEndpoint.value.trim() || modelInfo.endpoint
   };
@@ -999,67 +1010,20 @@ async function requestLlmReview(report, config) {
     throw new Error(`${toTitle(config.provider)} models need a configured proxy endpoint for browser-safe review.`);
   }
 
-  const payload = {
-    model: config.model,
-    instructions:
-      "You are a laboratory compliance screening assistant. Review only for oversight and triage. Do not provide procedural optimization, experimental instructions, or operational troubleshooting. Return concise JSON for human reviewers.",
-    input: buildLlmPrompt(report),
-    text: {
-      format: {
-        type: "json_schema",
-        name: "lab_compliance_review",
-        strict: true,
-        schema: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            summary: {
-              type: "string",
-              description: "One to three sentence compliance-focused summary."
-            },
-            confidence: {
-              type: "number",
-              minimum: 0,
-              maximum: 1
-            },
-            threat_level: {
-              type: "string",
-              enum: ["low", "moderate", "elevated", "flagged"],
-              description: "Final LLM-recommended threat level for this protocol."
-            },
-            rules_violated: {
-              type: "array",
-              items: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  rule: { type: "string" },
-                  severity: {
-                    type: "string",
-                    enum: ["low", "moderate", "elevated", "flagged"]
-                  },
-                  reason: { type: "string" },
-                  source_steps: {
-                    type: "array",
-                    items: { type: "string" }
-                  }
-                },
-                required: ["rule", "severity", "reason", "source_steps"]
-              }
-            }
-          },
-          required: ["summary", "confidence", "threat_level", "rules_violated"]
-        }
-      }
-    }
+  const payload = buildLlmPayload(report, config);
+  const headers = {
+    "Content-Type": "application/json"
   };
+
+  if (config.provider === "google") {
+    headers["x-goog-api-key"] = config.apiKey;
+  } else {
+    headers.Authorization = `Bearer ${config.apiKey}`;
+  }
 
   const response = await fetch(config.endpoint, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.apiKey}`
-    },
+    headers,
     body: JSON.stringify(payload)
   });
 
@@ -1073,10 +1037,95 @@ async function requestLlmReview(report, config) {
   if (!outputText) throw new Error("LLM response did not include text output.");
 
   try {
-    return JSON.parse(outputText);
+    return JSON.parse(stripJsonFence(outputText));
   } catch {
     throw new Error("LLM response was not valid JSON.");
   }
+}
+
+function buildLlmPayload(report, config) {
+  const prompt = buildLlmPrompt(report);
+  const schema = getLlmReviewSchema();
+
+  if (config.provider === "google") {
+    return {
+      system_instruction: {
+        parts: [{ text: getLlmInstructions() }]
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }]
+        }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: schema
+      }
+    };
+  }
+
+  return {
+    model: config.model,
+    instructions: getLlmInstructions(),
+    input: prompt,
+    text: {
+      format: {
+        type: "json_schema",
+        name: "lab_compliance_review",
+        strict: true,
+        schema
+      }
+    }
+  };
+}
+
+function getLlmInstructions() {
+  return "You are a laboratory compliance screening assistant. Review only for oversight and triage. Do not provide procedural optimization, experimental instructions, or operational troubleshooting. Return concise JSON for human reviewers.";
+}
+
+function getLlmReviewSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      summary: {
+        type: "string",
+        description: "One to three sentence compliance-focused summary."
+      },
+      confidence: {
+        type: "number",
+        minimum: 0,
+        maximum: 1
+      },
+      threat_level: {
+        type: "string",
+        enum: ["low", "moderate", "elevated", "flagged"],
+        description: "Final LLM-recommended threat level for this protocol."
+      },
+      rules_violated: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            rule: { type: "string" },
+            severity: {
+              type: "string",
+              enum: ["low", "moderate", "elevated", "flagged"]
+            },
+            reason: { type: "string" },
+            source_steps: {
+              type: "array",
+              items: { type: "string" }
+            }
+          },
+          required: ["rule", "severity", "reason", "source_steps"]
+        }
+      }
+    },
+    required: ["summary", "confidence", "threat_level", "rules_violated"]
+  };
 }
 
 function buildLlmPrompt(report) {
@@ -1128,6 +1177,11 @@ function buildLlmPrompt(report) {
 
 function extractResponseText(data) {
   if (typeof data.output_text === "string") return data.output_text;
+  if (Array.isArray(data.candidates)) {
+    const parts = data.candidates.flatMap((candidate) => candidate.content?.parts || []);
+    const text = parts.map((part) => part.text || "").join("\n").trim();
+    if (text) return text;
+  }
   const textParts = [];
   (data.output || []).forEach((item) => {
     (item.content || []).forEach((content) => {
@@ -1136,6 +1190,14 @@ function extractResponseText(data) {
     });
   });
   return textParts.join("\n").trim();
+}
+
+function stripJsonFence(text) {
+  return String(text)
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
 }
 
 function deriveFacts(protocol, graph) {
@@ -1664,6 +1726,12 @@ function clearValidationSummary() {
 function setSchemaStatus(text, level) {
   els.schemaStatus.textContent = text;
   els.schemaStatus.className = `status-pill ${level}`;
+}
+
+function setRunStatus(text) {
+  if (els.runChip) {
+    els.runChip.textContent = text;
+  }
 }
 
 function renderSubmissions() {
