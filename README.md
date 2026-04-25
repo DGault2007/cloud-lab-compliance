@@ -2,6 +2,8 @@
 
 Frontend prototype for a laboratory safety compliance tool that screens structured cloud lab protocols, highlights workflow-level review triggers, and presents submission queues for human oversight.
 
+Live demo: https://dgault2007.github.io/cloud-lab-compliance/
+
 ## Features
 
 - Protocol intake with format selection for Native JSON, Native YAML, Autoprotocol, and Emerald Cloud Lab exports.
