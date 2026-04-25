@@ -76,7 +76,7 @@ const protocols = [
     title: "Fragment Order + Assembly Program",
     submitter: "researcher_123",
     status: "Coordinated Review",
-    risk: "High",
+    risk: "Flagged",
     confidence: 0.88,
     policyPack: "us_biosafety_pack_2026_04",
     submittedAt: "2026-04-24 11:03",
@@ -136,11 +136,99 @@ const queue = [
   },
 ];
 
-const riskDistribution = [
-  { name: "Low", count: 8 },
-  { name: "Moderate", count: 5 },
-  { name: "Elevated", count: 3 },
-  { name: "High", count: 2 },
+const threatLevels = [
+  {
+    name: "Low",
+    summary: "Auto-triaged",
+    description: "High confidence, low risk. Routine protocol screening result with no meaningful escalation triggers.",
+    reviewAction: "Standard review or auto-triage",
+    count: 8,
+  },
+  {
+    name: "Moderate",
+    summary: "Uncertain routine risk",
+    description: "Low confidence with low or medium risk. Usually caused by missing fields, unclear materials, or incomplete oversight metadata.",
+    reviewAction: "Request more information",
+    count: 5,
+  },
+  {
+    name: "Elevated",
+    summary: "Potentially serious concern",
+    description: "Low or medium confidence with high risk. Escalate because the workflow may be concerning even if the evidence is incomplete.",
+    reviewAction: "Human review recommended",
+    count: 3,
+  },
+  {
+    name: "Flagged",
+    summary: "Confirmed high concern",
+    description: "High confidence and high risk. The protocol should not proceed without explicit human compliance review.",
+    reviewAction: "Mandatory human review",
+    count: 2,
+  },
+];
+
+const riskDistribution = threatLevels.map(({ name, count }) => ({ name, count }));
+
+const labProtocolSchemas = [
+  {
+    id: "native_json",
+    label: "Native JSON",
+    description: "Internal normalized JSON schema for hackathon demos and API submissions.",
+    extension: ".json",
+  },
+  {
+    id: "native_yaml",
+    label: "Native YAML",
+    description: "Readable YAML version of the internal protocol schema.",
+    extension: ".yaml / .yml",
+  },
+  {
+    id: "autoprotocol",
+    label: "Autoprotocol",
+    description: "JSON protocol format using refs and instructions for automated lab execution.",
+    extension: ".json",
+  },
+  {
+    id: "emerald_cloud_lab",
+    label: "Emerald Cloud Lab",
+    description: "ECL-style protocol objects and model/function-based experiment definitions.",
+    extension: ".json / export",
+  },
+];
+
+const policyPacks = [
+  {
+    id: "us_biosafety_pack_2026_04",
+    label: "US Biosafety Pack 2026.04",
+    description: "General hackathon policy pack covering biosafety, synthetic nucleic acids, human review routing, and cloud-lab workflow escalation.",
+    rules: 42,
+    domains: 6,
+    status: "Active",
+  },
+  {
+    id: "nih_recombinant_synthetic_na",
+    label: "NIH Recombinant/Synthetic NA",
+    description: "Focused review pack for recombinant or synthetic nucleic acid work, IBC routing, host/vector context, and missing oversight metadata.",
+    rules: 24,
+    domains: 4,
+    status: "Draft",
+  },
+  {
+    id: "hhs_sequence_screening",
+    label: "HHS Sequence Screening",
+    description: "Sequence-screening-oriented pack for synthetic nucleic acid provider attestations, SOC result handling, and unresolved screening escalation.",
+    rules: 18,
+    domains: 3,
+    status: "Draft",
+  },
+  {
+    id: "institutional_cloud_lab_review",
+    label: "Institutional Cloud Lab Review",
+    description: "Institution-level governance pack for multi-protocol correlation, remote execution review, missing approvals, and reviewer queue routing.",
+    rules: 31,
+    domains: 5,
+    status: "Experimental",
+  },
 ];
 
 const graphNodes = [
@@ -181,12 +269,13 @@ function riskIcon(risk) {
   if (risk === "Low") return <ShieldCheck className="h-5 w-5" />;
   if (risk === "Moderate") return <AlertTriangle className="h-5 w-5" />;
   if (risk === "Elevated") return <ShieldAlert className="h-5 w-5" />;
-  return <Biohazard className="h-5 w-5" />;
+  if (risk === "Flagged") return <Biohazard className="h-5 w-5" />;
+  return <ShieldAlert className="h-5 w-5" />;
 }
 
 function Card({ children, className = "" }) {
   return (
-    <section className={classNames("rounded-2xl border border-slate-200 bg-white shadow-sm", className)}>
+    <section className={classNames("rounded-2xl border border-slate-800 bg-slate-900 shadow-sm shadow-black/20", className)}>
       {children}
     </section>
   );
@@ -194,12 +283,12 @@ function Card({ children, className = "" }) {
 
 function CardHeader({ icon, title, subtitle, action }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
+    <div className="flex items-start justify-between gap-4 border-b border-slate-800 p-5">
       <div className="flex items-start gap-3">
-        <div className="rounded-2xl bg-slate-100 p-2 text-slate-700">{icon}</div>
+        <div className="rounded-2xl bg-slate-800 p-2 text-slate-100">{icon}</div>
         <div>
-          <h2 className="text-base font-semibold text-slate-950">{title}</h2>
-          {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+          <h2 className="text-base font-semibold text-slate-50">{title}</h2>
+          {subtitle && <p className="mt-1 text-sm text-slate-400">{subtitle}</p>}
         </div>
       </div>
       {action}
@@ -225,60 +314,155 @@ function MetricCard({ icon, label, value, detail, tone = "slate" }) {
   };
 
   return (
-    <Card className="p-5">
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5">
       <div className="flex items-center justify-between">
         <div className={classNames("rounded-2xl p-2", tones[tone])}>{icon}</div>
-        <ArrowRight className="h-4 w-4 text-slate-300" />
+        <ArrowRight className="h-4 w-4 text-slate-500" />
       </div>
       <div className="mt-5">
-        <p className="text-sm text-slate-500">{label}</p>
-        <p className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">{value}</p>
-        <p className="mt-1 text-sm text-slate-500">{detail}</p>
+        <p className="text-sm text-slate-400">{label}</p>
+        <p className="mt-1 text-3xl font-semibold tracking-tight text-slate-50">{value}</p>
+        <p className="mt-1 text-sm text-slate-400">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function ResultsPanel({ screenedToday }) {
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader
+        icon={<FlaskConical className="h-5 w-5" />}
+        title="Results"
+        subtitle="Current screening output for today’s cloud-lab protocol submissions."
+      />
+      <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-3">
+        <MetricCard
+          icon={<FlaskConical className="h-5 w-5" />}
+          label="Protocols screened today"
+          value={screenedToday}
+          detail="Increments when New screening is clicked"
+          tone="blue"
+        />
+        <MetricCard
+          icon={<ShieldAlert className="h-5 w-5" />}
+          label="Need human review"
+          value="6"
+          detail="Elevated or Flagged protocols"
+          tone="amber"
+        />
+        <MetricCard
+          icon={<ShieldCheck className="h-5 w-5" />}
+          label="Low threat"
+          value="8"
+          detail="Auto-triaged, high confidence low risk"
+          tone="green"
+        />
       </div>
     </Card>
   );
 }
 
-function UploadPanel() {
+function UploadPanel({ selectedSchemaId, onSchemaChange, selectedPolicyPackId }) {
+  const selectedSchema = labProtocolSchemas.find((schema) => schema.id === selectedSchemaId) ?? labProtocolSchemas[0];
+  const selectedPolicyPack = policyPacks.find((pack) => pack.id === selectedPolicyPackId) ?? policyPacks[0];
+
   return (
     <Card className="overflow-hidden">
       <CardHeader
         icon={<CloudUpload className="h-5 w-5" />}
         title="Protocol Intake"
-        subtitle="Upload JSON/YAML protocols or paste cloud-lab run metadata."
+        subtitle="Choose a protocol schema, then upload or paste a protocol for screening."
         action={<Pill className="border-sky-200 bg-sky-50 text-sky-700">MVP parser</Pill>}
       />
-      <div className="p-5">
-        <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm">
-            <Upload className="h-6 w-6" />
+      <div className="space-y-5 p-5">
+        <div>
+          <label htmlFor="lab-protocol-schema" className="text-sm font-semibold text-slate-950">
+            Lab protocol schema
+          </label>
+          <div className="relative mt-2">
+            <select
+              id="lab-protocol-schema"
+              value={selectedSchemaId}
+              onChange={(event) => onSchemaChange(event.target.value)}
+              className="w-full appearance-none rounded-2xl border border-slate-300 bg-white px-4 py-3 pr-10 text-sm font-semibold text-slate-950 shadow-sm outline-none transition hover:bg-slate-50 focus:border-slate-500function UploadPanel({ selectedSchemaId, onSchemaChange, selectedPolicyPackId, onPolicyPackChange }) {
+  const selectedSchema = labProtocolSchemas.find((schema) => schema.id === selectedSchemaId) ?? labProtocolSchemas[0];
+  const selectedPolicyPack = policyPacks.find((pack) => pack.id === selectedPolicyPackId) ?? policyPacks[0];
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader
+        icon={<CloudUpload className="h-5 w-5" />}
+        title="Protocol Intake"
+        subtitle="Choose a protocol schema and policy pack, then upload or paste a protocol for screening."
+      />
+      <div className="space-y-5 p-5">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div>
+            <label htmlFor="lab-protocol-schema" className="text-sm font-semibold text-slate-50">
+              Lab protocol schema
+            </label>
+            <div className="relative mt-2">
+              <select
+                id="lab-protocol-schema"
+                value={selectedSchemaId}
+                onChange={(event) => onSchemaChange(event.target.value)}
+                className="w-full appearance-none rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 pr-10 text-sm font-semibold text-slate-50 shadow-sm outline-none transition hover:bg-slate-800 focus:border-sky-500 focus:ring-4 focus:ring-slate-800"
+              >
+                {labProtocolSchemas.map((schema) => (
+                  <option key={schema.id} value={schema.id}>
+                    {schema.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            </div>
+            <div className="mt-3 flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-800/60 px-4 py-3">
+              <p className="text-sm text-slate-400">{selectedSchema.description}</p>
+              <Pill className="shrink-0 border-slate-800 bg-slate-900 text-slate-300">{selectedSchema.extension}</Pill>
+            </div>
           </div>
-          <h3 className="mt-4 text-sm font-semibold text-slate-950">Drop protocol files here</h3>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-            Supports native protocol JSON/YAML first. Autoprotocol and vendor importers can plug in later.
-          </p>
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <button className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">
-              Select file
-            </button>
-            <button className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
-              Paste JSON
-            </button>
+
+          <div>
+            <label htmlFor="policy-pack" className="text-sm font-semibold text-slate-50">
+              Policy pack
+            </label>
+            <div className="relative mt-2">
+              <select
+                id="policy-pack"
+                value={selectedPolicyPackId}
+                onChange={(event) => onPolicyPackChange(event.target.value)}
+                className="w-full appearance-none rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 pr-10 text-sm font-semibold text-slate-50 shadow-sm outline-none transition hover:bg-slate-800 focus:border-sky-500 focus:ring-4 focus:ring-slate-800"
+              >
+                {policyPacks.map((pack) => (
+                  <option key={pack.id} value={pack.id}>
+                    {pack.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            </div>
+            <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-800/60 px-4 py-3">
+              <p className="text-sm text-slate-400">{selectedPolicyPack.description}</p>
+            </div>
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-3">
-          <div className="rounded-2xl border border-slate-200 p-3">
-            <FileJson className="h-4 w-4 text-slate-500" />
-            <p className="mt-2 text-xs font-medium text-slate-700">Schema validation</p>
+        <div className="rounded-2xl border-2 border-dashed border-slate-800 bg-slate-800/60 p-6 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-slate-100 shadow-sm">
+            <Upload className="h-6 w-6" />
           </div>
-          <div className="rounded-2xl border border-slate-200 p-3">
-            <GitBranch className="h-4 w-4 text-slate-500" />
-            <p className="mt-2 text-xs font-medium text-slate-700">Graph builder</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 p-3">
-            <Search className="h-4 w-4 text-slate-500" />
-            <p className="mt-2 text-xs font-medium text-slate-700">Rule screening</p>
+          <h3 className="mt-4 text-sm font-semibold text-slate-50">Drop {selectedSchema.label} protocol files here</h3>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-slate-400">
+            Selected importer: {selectedSchema.label}. Screening will use {selectedPolicyPack.label}.
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <button className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-slate-800">
+              Select file
+            </button>
+            <button className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-300 shadow-sm hover:bg-slate-800">
+              Paste protocol
+            </button>
           </div>
         </div>
       </div>
@@ -286,27 +470,7 @@ function UploadPanel() {
   );
 }
 
-function ProtocolTable({ selectedId, onSelect }) {
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader
-        icon={<ClipboardList className="h-5 w-5" />}
-        title="Protocol Submissions"
-        subtitle="Triage queue for recent cloud-lab protocol runs."
-        action={
-          <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
-            Filter <ChevronDown className="h-4 w-4" />
-          </button>
-        }
-      />
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-5 py-3 font-semibold">Protocol</th>
-              <th className="px-5 py-3 font-semibold">Status</th>
-              <th className="px-5 py-3 font-semibold">Risk</th>
-              <th className="px-5 py-3 font-semibold">Confidence</th>
+function ProtocolTableth>
               <th className="px-5 py-3 font-semibold">Findings</th>
             </tr>
           </thead>
@@ -489,15 +653,15 @@ function ReviewQueue() {
   );
 }
 
-function RiskChart() {
+function ThreatLevelPanel() {
   return (
     <Card>
       <CardHeader
         icon={<Layers3 className="h-5 w-5" />}
-        title="Risk Distribution"
-        subtitle="Current protocol population by triage level."
+        title="Threat Levels"
+        subtitle="Four-level triage model based on confidence and risk."
       />
-      <div className="h-72 p-5">
+      <div className="h-64 p-5">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={riskDistribution} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -508,11 +672,28 @@ function RiskChart() {
           </BarChart>
         </ResponsiveContainer>
       </div>
+      <div className="divide-y divide-slate-100 border-t border-slate-100">
+        {threatLevels.map((level) => (
+          <div key={level.name} className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-2xl bg-slate-100 p-2 text-slate-700">{riskIcon(level.name)}</div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-slate-950">{level.name}</p>
+                  <Pill className="border-slate-200 bg-slate-50 text-slate-700">{level.summary}</Pill>
+                </div>
+                <p className="mt-1 text-sm text-slate-500">{level.description}</p>
+                <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-400">{level.reviewAction}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </Card>
   );
 }
 
-function PolicyPanel() {
+function PolicyPanel({ selectedPolicyPack }) {
   return (
     <Card>
       <CardHeader
@@ -524,11 +705,17 @@ function PolicyPanel() {
         <div className="rounded-2xl border border-slate-200 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-slate-950">us_biosafety_pack_2026_04</p>
-              <p className="mt-1 text-xs text-slate-500">42 rules · 6 review domains · active</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-slate-950">{selectedPolicyPack.label}</p>
+
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                {selectedPolicyPack.rules} rules · {selectedPolicyPack.domains} review domains · {selectedPolicyPack.id}
+              </p>
             </div>
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
           </div>
+          <p className="mt-4 text-sm text-slate-600">{selectedPolicyPack.description}</p>
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-2xl bg-slate-50 p-3">
@@ -537,7 +724,7 @@ function PolicyPanel() {
           </div>
           <div className="rounded-2xl bg-slate-50 p-3">
             <p className="font-medium text-slate-900">Rules evaluated</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-950">168</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-950">{selectedPolicyPack.rules * protocols.length}</p>
           </div>
         </div>
       </div>
@@ -577,27 +764,35 @@ function AuditPanel() {
 
 export default function CloudLabComplianceDashboard() {
   const [selectedId, setSelectedId] = useState(protocols[0].id);
+  const [selectedPolicyPackId, setSelectedPolicyPackId] = useState(policyPacks[0].id);
+  const [selectedSchemaId, setSelectedSchemaId] = useState(labProtocolSchemas[0].id);
+  const [screenedToday, setScreenedToday] = useState(4);
   const selected = protocols.find((protocol) => protocol.id === selectedId) ?? protocols[0];
+  const selectedPolicyPack = policyPacks.find((pack) => pack.id === selectedPolicyPackId) ?? policyPacks[0];
+
+  const handleNewScreening = () => {
+    setScreenedToday((current) => current + 1);
+  };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-950">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/85 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-6 py-1">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm">
-              <Microscope className="h-6 w-6" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500 text-white shadow-sm shadow-sky-950/40">
+              <Microscope className="h-4 w-4" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold tracking-tight text-slate-950">Cloud Lab Protocol Compliance</h1>
-              <p className="text-sm text-slate-500">Protocol-level safety triage for remote experimental workflows</p>
+              <h1 className="text-sm font-bold tracking-tight text-slate-50">Cloud Lab Protocol Compliance</h1>
+              <p className="text-[11px] font-medium text-slate-300">Protocol-level safety triage for remote experimental workflows</p>
             </div>
           </div>
           <div className="hidden items-center gap-2 md:flex">
-            <Pill className="border-emerald-200 bg-emerald-50 text-emerald-700">Policy pack active</Pill>
-            <button className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
-              Export report
-            </button>
-            <button className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">
+            <Pill className="border-emerald-200 bg-emerald-50 text-emerald-700">{selectedPolicyPack.label}</Pill>
+            <button
+              onClick={handleNewScreening}
+              className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
+            >
               New screening
             </button>
           </div>
@@ -605,41 +800,16 @@ export default function CloudLabComplianceDashboard() {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-6 px-6 py-6">
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            icon={<FlaskConical className="h-5 w-5" />}
-            label="Protocols screened"
-            value="18"
-            detail="4 submitted today"
-            tone="blue"
-          />
-          <MetricCard
-            icon={<ShieldAlert className="h-5 w-5" />}
-            label="Need human review"
-            value="6"
-            detail="2 high-priority escalations"
-            tone="amber"
-          />
-          <MetricCard
-            icon={<Network className="h-5 w-5" />}
-            label="Linked programs"
-            value="3"
-            detail="Multi-protocol correlations"
-            tone="red"
-          />
-          <MetricCard
-            icon={<ShieldCheck className="h-5 w-5" />}
-            label="Auto-triaged standard"
-            value="8"
-            detail="High confidence, low risk"
-            tone="green"
-          />
-        </section>
+        <UploadPanel
+          selectedSchemaId={selectedSchemaId}
+          onSchemaChange={setSelectedSchemaId}
+          selectedPolicyPackId={selectedPolicyPackId}
+          onPolicyPackChange={setSelectedPolicyPackId}
+        />
 
-        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
-          <UploadPanel />
-          <ProtocolTable selectedId={selectedId} onSelect={setSelectedId} />
-        </section>
+        <ResultsPanel screenedToday={screenedToday} />
+
+        <ProtocolTable selectedId={selectedId} onSelect={setSelectedId} />
 
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-6">
@@ -682,8 +852,8 @@ export default function CloudLabComplianceDashboard() {
 
           <div className="space-y-6">
             <ReviewQueue />
-            <RiskChart />
-            <PolicyPanel />
+            <ThreatLevelPanel />
+            <PolicyPanel selectedPolicyPack={selectedPolicyPack} />
             <AuditPanel />
           </div>
         </section>
