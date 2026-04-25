@@ -312,6 +312,7 @@ th {
 }
 
 select,
+input,
 textarea {
   width: 100%;
   border: 1px solid #cbd5e1;
@@ -320,17 +321,32 @@ textarea {
   color: var(--ink);
 }
 
-select {
+select,
+input {
   height: 44px;
   margin-top: 7px;
   padding: 0 12px;
 }
 
 select:focus,
+input:focus,
 textarea:focus,
 button:focus-visible {
   outline: 3px solid rgba(37, 99, 235, 0.22);
   outline-offset: 2px;
+}
+
+.llm-config {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(160px, 0.55fr) minmax(240px, 1fr);
+  gap: 14px;
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.wide-label {
+  min-width: 0;
 }
 
 .protocol-inputs {
@@ -589,6 +605,7 @@ pre {
   line-height: 1.5;
 }
 
+.result-context,
 .result-metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -596,6 +613,11 @@ pre {
   margin: 18px 0 0;
 }
 
+.result-context {
+  grid-template-columns: 1.2fr 0.8fr 0.8fr;
+}
+
+.result-context div,
 .result-metrics div {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -603,6 +625,7 @@ pre {
   background: #fbfdfd;
 }
 
+.result-context dt,
 .result-metrics dt {
   color: var(--muted);
   font-size: 0.75rem;
@@ -610,9 +633,11 @@ pre {
   text-transform: uppercase;
 }
 
+.result-context dd,
 .result-metrics dd {
   margin: 6px 0 0;
   font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .workflow-graph {
@@ -826,6 +851,8 @@ textarea {
   }
 
   .form-grid,
+  .llm-config,
+  .result-context,
   .protocol-inputs,
   .result-metrics,
   .score-row {

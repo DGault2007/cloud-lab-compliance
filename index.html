@@ -98,6 +98,21 @@
                 </label>
               </div>
 
+              <div class="llm-config">
+                <label>
+                  <span>OpenAI API key</span>
+                  <input id="llm-api-key" type="password" autocomplete="off" placeholder="Session only" />
+                </label>
+                <label>
+                  <span>LLM model</span>
+                  <input id="llm-model" type="text" value="gpt-4.1-mini" />
+                </label>
+                <label class="wide-label">
+                  <span>LLM endpoint</span>
+                  <input id="llm-endpoint" type="url" value="https://api.openai.com/v1/responses" />
+                </label>
+              </div>
+
               <div class="protocol-inputs">
                 <label class="upload-zone" for="protocol-file" id="upload-zone">
                   <input id="protocol-file" type="file" accept=".json,.yaml,.yml,.txt" />
@@ -158,6 +173,21 @@
                   </p>
                 </div>
               </div>
+
+              <dl class="result-context">
+                <div>
+                  <dt>Protocol</dt>
+                  <dd id="protocol-title-metric">-</dd>
+                </div>
+                <div>
+                  <dt>User</dt>
+                  <dd id="protocol-user-metric">-</dd>
+                </div>
+                <div>
+                  <dt>LLM review</dt>
+                  <dd id="llm-status-metric">Not configured</dd>
+                </div>
+              </dl>
 
               <dl class="result-metrics">
                 <div>

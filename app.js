@@ -336,6 +336,9 @@ const els = {
   views: document.querySelectorAll(".view"),
   protocolFormat: document.getElementById("protocol-format"),
   policyProfile: document.getElementById("policy-profile"),
+  llmApiKey: document.getElementById("llm-api-key"),
+  llmModel: document.getElementById("llm-model"),
+  llmEndpoint: document.getElementById("llm-endpoint"),
   sampleSelect: document.getElementById("sample-select"),
   protocolFile: document.getElementById("protocol-file"),
   fileName: document.getElementById("file-name"),
@@ -360,6 +363,9 @@ const els = {
   meterFg: document.getElementById("meter-fg"),
   resultHeading: document.getElementById("result-heading"),
   resultSummary: document.getElementById("result-summary"),
+  protocolTitleMetric: document.getElementById("protocol-title-metric"),
+  protocolUserMetric: document.getElementById("protocol-user-metric"),
+  llmStatusMetric: document.getElementById("llm-status-metric"),
   riskMetric: document.getElementById("risk-metric"),
   findingsMetric: document.getElementById("findings-metric"),
   routeMetric: document.getElementById("route-metric"),
@@ -447,19 +453,28 @@ function validateProtocol() {
   els.runChip.textContent = "Validated";
 }
 
-function screenProtocol() {
+async function screenProtocol() {
   if (!validationResult?.valid || !parsedProtocol) return;
 
+  els.screenBtn.disabled = true;
   currentReport = buildComplianceReport(parsedProtocol, validationResult, els.policyProfile.value);
   renderReport(currentReport);
   renderGraph(currentReport.graph, currentReport.triggers);
-  renderTriggers(currentReport.triggers, currentReport.missingInformation);
-  saveReportSubmission(currentReport);
+  renderTriggers(currentReport.triggers, currentReport.missingInformation, currentReport.llmReview);
 
   els.resultsPanel.classList.remove("hidden");
   els.graphPanel.classList.remove("hidden");
   els.rulesPanel.classList.remove("hidden");
-  els.runChip.textContent = "Screened";
+
+  try {
+    await enrichReportWithLlm(currentReport);
+  } finally {
+    renderReport(currentReport);
+    renderTriggers(currentReport.triggers, currentReport.missingInformation, currentReport.llmReview);
+    saveReportSubmission(currentReport);
+    els.screenBtn.disabled = false;
+    els.runChip.textContent = "Screened";
+  }
 }
 
 function parseProtocolText(text, format) {
@@ -727,12 +742,210 @@ function buildComplianceReport(protocol, validation, policyName) {
     confidence: scoring.confidence,
     route: scoring.route,
     summary: threat.summary,
+    llmReview: {
+      status: "not_configured",
+      model: "",
+      summary: "",
+      rulesViolated: [],
+      confidence: null,
+      error: ""
+    },
     facts,
     triggers,
     missingInformation,
     graph,
     validation
   };
+}
+
+async function enrichReportWithLlm(report) {
+  const config = getLlmConfig();
+  if (!config.apiKey) {
+    report.llmReview = {
+      status: "not_configured",
+      model: config.model,
+      summary: "",
+      rulesViolated: [],
+      confidence: null,
+      error: ""
+    };
+    return;
+  }
+
+  report.llmReview = {
+    status: "pending",
+    model: config.model,
+    summary: "",
+    rulesViolated: [],
+    confidence: null,
+    error: ""
+  };
+  els.runChip.textContent = "LLM reviewing";
+  renderReport(report);
+
+  try {
+    const llmReview = await requestLlmReview(report, config);
+    report.llmReview = {
+      status: "completed",
+      model: config.model,
+      summary: llmReview.summary || "",
+      rulesViolated: Array.isArray(llmReview.rules_violated) ? llmReview.rules_violated : [],
+      confidence: typeof llmReview.confidence === "number" ? llmReview.confidence : null,
+      error: ""
+    };
+  } catch (error) {
+    report.llmReview = {
+      status: "failed",
+      model: config.model,
+      summary: "",
+      rulesViolated: [],
+      confidence: null,
+      error: error.message || "LLM review failed."
+    };
+  }
+}
+
+function getLlmConfig() {
+  return {
+    apiKey: els.llmApiKey.value.trim(),
+    model: els.llmModel.value.trim() || "gpt-4.1-mini",
+    endpoint: els.llmEndpoint.value.trim() || "https://api.openai.com/v1/responses"
+  };
+}
+
+async function requestLlmReview(report, config) {
+  const payload = {
+    model: config.model,
+    instructions:
+      "You are a laboratory compliance screening assistant. Review only for oversight and triage. Do not provide procedural optimization, experimental instructions, or operational troubleshooting. Return concise JSON for human reviewers.",
+    input: buildLlmPrompt(report),
+    text: {
+      format: {
+        type: "json_schema",
+        name: "lab_compliance_review",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            summary: {
+              type: "string",
+              description: "One to three sentence compliance-focused summary."
+            },
+            confidence: {
+              type: "number",
+              minimum: 0,
+              maximum: 1
+            },
+            rules_violated: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  rule: { type: "string" },
+                  severity: {
+                    type: "string",
+                    enum: ["low", "moderate", "elevated", "flagged"]
+                  },
+                  reason: { type: "string" },
+                  source_steps: {
+                    type: "array",
+                    items: { type: "string" }
+                  }
+                },
+                required: ["rule", "severity", "reason", "source_steps"]
+              }
+            }
+          },
+          required: ["summary", "confidence", "rules_violated"]
+        }
+      }
+    }
+  };
+
+  const response = await fetch(config.endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.apiKey}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`LLM request failed (${response.status}): ${errorText.slice(0, 180)}`);
+  }
+
+  const data = await response.json();
+  const outputText = extractResponseText(data);
+  if (!outputText) throw new Error("LLM response did not include text output.");
+
+  try {
+    return JSON.parse(outputText);
+  } catch {
+    throw new Error("LLM response was not valid JSON.");
+  }
+}
+
+function buildLlmPrompt(report) {
+  const reviewPacket = {
+    protocol: {
+      id: report.protocolId,
+      title: report.title,
+      user: report.user,
+      policy: report.policy
+    },
+    deterministic_screening: {
+      level: report.level,
+      risk: report.risk,
+      confidence: report.confidence,
+      route: report.route,
+      triggers: report.triggers.map((trigger) => ({
+        id: trigger.id,
+        domain: trigger.domain,
+        level: trigger.level,
+        title: trigger.title,
+        detail: trigger.detail,
+        source_steps: trigger.sourceSteps
+      })),
+      missing_information: report.missingInformation
+    },
+    workflow_facts: {
+      has_remote_execution: report.facts.hasRemoteExecution,
+      has_shipping: report.facts.hasShipping,
+      has_biohazard_waste: report.facts.hasBiohazardWaste,
+      has_hazardous_waste: report.facts.hasHazardousWaste,
+      has_propagation: report.facts.hasPropagation,
+      has_modification: report.facts.hasModification,
+      recombinant_material_count: report.facts.recombinantMaterials.length,
+      biological_material_count: report.facts.biologicalMaterials.length,
+      hazardous_chemical_count: report.facts.hazardousChemicals.length,
+      human_material_count: report.facts.humanMaterials.length,
+      controlled_material_count: report.facts.controlledMaterials.length
+    },
+    operations: parsedProtocol.operations.map((operation) => ({
+      id: operation.id,
+      type: operation.type,
+      inputs: operation.inputs,
+      outputs: operation.outputs
+    }))
+  };
+
+  return `Review this normalized compliance screening packet and return the requested JSON only.\n${JSON.stringify(reviewPacket, null, 2)}`;
+}
+
+function extractResponseText(data) {
+  if (typeof data.output_text === "string") return data.output_text;
+  const textParts = [];
+  (data.output || []).forEach((item) => {
+    (item.content || []).forEach((content) => {
+      if (typeof content.text === "string") textParts.push(content.text);
+      if (typeof content.output_text === "string") textParts.push(content.output_text);
+    });
+  });
+  return textParts.join("\n").trim();
 }
 
 function deriveFacts(protocol, graph) {
@@ -1080,9 +1293,12 @@ function renderReport(report) {
   els.overallStatus.textContent = threat.label;
   els.overallStatus.className = `status-pill ${report.level}`;
   els.resultHeading.textContent = threat.status;
-  els.resultSummary.textContent = report.summary;
+  els.resultSummary.textContent = getReportSummary(report);
+  els.protocolTitleMetric.textContent = report.title;
+  els.protocolUserMetric.textContent = report.user;
+  els.llmStatusMetric.textContent = getLlmStatusText(report.llmReview);
   els.riskMetric.textContent = report.risk;
-  els.findingsMetric.textContent = String(report.triggers.filter((trigger) => trigger.level !== "low").length);
+  els.findingsMetric.textContent = String(getFindingCount(report));
   els.routeMetric.textContent = report.route;
   els.confidenceText.textContent = `${report.confidence}%`;
 
@@ -1090,6 +1306,36 @@ function renderReport(report) {
   els.meterFg.style.strokeDashoffset = String(circumference - (circumference * report.confidence) / 100);
   els.meterFg.style.stroke = getLevelColor(report.level);
   document.querySelector(".result-label").textContent = threat.action;
+}
+
+function getReportSummary(report) {
+  if (report.llmReview?.status === "completed" && report.llmReview.summary) {
+    return report.llmReview.summary;
+  }
+  if (report.llmReview?.status === "pending") {
+    return "Deterministic screening is complete. LLM review is running for a reviewer-oriented summary and additional policy findings.";
+  }
+  if (report.llmReview?.status === "failed") {
+    return `${report.summary} LLM review failed: ${report.llmReview.error}`;
+  }
+  return report.summary;
+}
+
+function getLlmStatusText(llmReview) {
+  if (!llmReview || llmReview.status === "not_configured") return "Not configured";
+  if (llmReview.status === "pending") return "Reviewing";
+  if (llmReview.status === "failed") return "Failed";
+  if (llmReview.status === "completed") {
+    const confidence = typeof llmReview.confidence === "number" ? `, ${Math.round(llmReview.confidence * 100)}%` : "";
+    return `Completed (${llmReview.model}${confidence})`;
+  }
+  return "Not configured";
+}
+
+function getFindingCount(report) {
+  const deterministic = report.triggers.filter((trigger) => trigger.level !== "low").length;
+  const llm = report.llmReview?.status === "completed" ? report.llmReview.rulesViolated.length : 0;
+  return deterministic + llm;
 }
 
 function renderGraph(graph, triggers) {
@@ -1149,7 +1395,7 @@ function renderGraph(graph, triggers) {
   `;
 }
 
-function renderTriggers(triggers, missingInformation) {
+function renderTriggers(triggers, missingInformation, llmReview = null) {
   const visibleTriggers = triggers.filter((trigger) => trigger.level !== "low");
   const displayTriggers = visibleTriggers.length ? visibleTriggers : triggers;
   els.rulesCount.textContent = `${visibleTriggers.length} flagged`;
@@ -1175,7 +1421,31 @@ function renderTriggers(triggers, missingInformation) {
     `
     : "";
 
-  els.triggerList.innerHTML = triggerMarkup + missingMarkup;
+  const llmMarkup =
+    llmReview?.status === "completed" && llmReview.rulesViolated.length
+      ? llmReview.rulesViolated
+          .map(
+            (finding) => `
+        <article class="trigger-item ${normalizeLevel(finding.severity)}">
+          <strong>LLM: ${escapeHtml(finding.rule)}</strong>
+          <p>${escapeHtml(finding.reason)}${finding.source_steps?.length ? ` Steps: ${escapeHtml(finding.source_steps.join(", "))}.` : ""}</p>
+        </article>
+      `
+          )
+          .join("")
+      : "";
+
+  const llmErrorMarkup =
+    llmReview?.status === "failed"
+      ? `
+        <article class="trigger-item moderate">
+          <strong>LLM review unavailable</strong>
+          <p>${escapeHtml(llmReview.error)}</p>
+        </article>
+      `
+      : "";
+
+  els.triggerList.innerHTML = triggerMarkup + missingMarkup + llmMarkup + llmErrorMarkup;
 }
 
 function renderValidationSummary(result) {
@@ -1315,6 +1585,10 @@ function getLevelColor(level) {
     elevated: "#b45309",
     flagged: "#b91c1c"
   }[level];
+}
+
+function normalizeLevel(level) {
+  return ["low", "moderate", "elevated", "flagged"].includes(level) ? level : "moderate";
 }
 
 function strongestLevel(current = "neutral", next = "neutral") {

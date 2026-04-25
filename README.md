@@ -13,6 +13,8 @@ Live demo: https://dgault2007.github.io/cloud-lab-compliance/
 - Validation gate before screening with blocking errors and review warnings.
 - Deterministic policy-rule screening for biosafety, recombinant nucleic-acid, chemical hygiene, hazardous waste, shipping, human-material, facility, and biosecurity patterns.
 - Generated workflow graph, rule triggers, overall status, risk level, confidence, and review route.
+- Optional OpenAI-compatible LLM review after screening, with Card 4 summary enrichment and Card 3 policy findings.
+- Protocol title, user, and LLM review status in the overall results card.
 - Built-in sample protocols covering low, moderate, elevated, flagged, Autoprotocol, Emerald Cloud Lab, and YAML cases.
 - Persistent browser-local submission history with human review queue, auto-approved list, CSV export, and per-run JSON report export.
 - GitHub Pages deployment for static hosting.
@@ -48,9 +50,19 @@ The current GitHub Pages-compatible implementation runs the full MVP flow in the
 4. Derive workflow facts from materials, operations, requested execution, facility capabilities, and oversight metadata.
 5. Evaluate policy rules for the selected policy profile.
 6. Score risk and confidence.
-7. Render a workflow graph, findings, missing information, result status, and queues.
+7. Optionally send the normalized screening packet to an OpenAI-compatible LLM endpoint.
+8. Render a workflow graph, findings, missing information, result status, LLM summary, and queues.
 
-The LLM review layer is intentionally not included in the GitHub Pages build because client-side API keys would be exposed. The next production step should be a small backend API that receives the normalized protocol and returns a structured LLM review object.
+## LLM Review
+
+The GitHub Pages build includes an optional runtime LLM call using the OpenAI Responses API format.
+
+- Endpoint defaults to `https://api.openai.com/v1/responses`.
+- Model defaults to `gpt-4.1-mini`.
+- API keys are entered at runtime and are not committed to the repository.
+- For production, route LLM calls through a small backend proxy so browser clients never handle long-lived API keys.
+
+If no API key is entered, deterministic screening still runs and the LLM status displays as `Not configured`.
 
 ## Deploy With GitHub Pages
 
@@ -111,13 +123,13 @@ docker compose up --build
 
 ## Current Scope
 
-This is a frontend-only MVP with real client-side parsing, validation, deterministic rules, graph generation, scoring, persistence, and exports. It is suitable for a GitHub Pages hackathon demo.
+This is a frontend-only MVP with real client-side parsing, validation, deterministic rules, graph generation, scoring, optional LLM review, persistence, and exports. It is suitable for a GitHub Pages hackathon demo.
 
 Recommended next backend pieces:
 
 - JSON Schema or Pydantic validation that mirrors the browser validator.
 - Versioned policy-card rules stored outside the UI bundle.
-- Server-side structured LLM review output.
+- Server-side structured LLM review output with API keys stored outside the browser.
 - Persistent submissions API and audit trail.
 
 ## Safety Note
