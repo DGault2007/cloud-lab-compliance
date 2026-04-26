@@ -1,50 +1,32 @@
-# Biosafety Workflow Analyzer
+# Biosafety Cloud Lab Compliance Screener
 
-Static GitHub Pages dashboard for screening structured cloud lab protocols for biosafety and compliance review triggers.
+This proof of concept was created to screen scientific and cloud lab protocols for biosafety and compliance review triggers.
+The purpose is to be used as a tool to help triage biosecurity compliance.
+It was created for the Apart Hackathon April 2026.
 
 Live demo: https://dgault2007.github.io/cloud-lab-compliance/
 
 ## What It Does
 
-- Parses JSON and a constrained YAML subset.
-- Normalizes Native JSON, Native YAML, Autoprotocol-like, and Emerald Cloud Lab-like inputs.
-- Validates required protocol fields and surfaces missing metadata.
-- Generates workflow graphs from materials, operations, outputs, and dependencies.
-- Screens protocols using editable policy profiles and deterministic rule domains.
-- Optionally enriches results with Gemini 2.5 Flash or OpenAI-compatible LLM review.
-- Exports submission CSVs and per-run JSON reports.
+- Takes a scientific protocol and analyzes the threat risk
 
-## Threat Levels
-
-| Level | Meaning | Action |
-| --- | --- | --- |
-| Low | High confidence, low risk | Standard review or auto-triage |
-| Moderate | Unclear routine risk or missing metadata | Request more information |
-| Elevated | Potentially serious concern | Human review recommended |
-| Flagged | Confirmed high concern | Mandatory human review |
+1- Normalizes different inputs like Native JSON, Native YAML, Autoprotocol, and Emerald Cloud Lab
+2- Validates required protocol fields and surfaces missing metadata
+3- Generates workflow graphs from materials, operations, outputs, and dependencies
+4- Screens protocols using editable policy profiles and deterministic rule domains
+5- Can optionally enrich results with LLM review
+6- Exports submission CSVs and per-run JSON reports for auditing
 
 ## Run Locally
 
-Open `index.html` in a browser, or run:
-
-```bash
-npm test
-```
+Open `index.html` in a browser.
 
 ## Deploy
 
 GitHub Pages is configured through `.github/workflows/pages.yml`. Push to `main` and set Pages source to **GitHub Actions**.
 
-## Report
+This is a triage and reviewer-assistance prototype proof of concept.
 
-The hackathon report is included at:
-
-```text
-reports/Apart Hackathon Research Report - Dustin Gault.pdf
-```
-
-## Notes
-
-This is a triage and reviewer-assistance prototype. It should not automatically approve, optimize, or execute laboratory work without appropriate human compliance review.
+___
 
 Copyright (c) Dustin Gault - 2026.
